@@ -21,7 +21,6 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.zyacodes.olstar.R;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -31,15 +30,13 @@ import java.util.Locale;
 public class DashboardActivity extends AppCompatActivity {
 
     private TextView tvTotalBookings, tvTodayEarnings, tvPendingBookings;
-    private TextView tvWeeklyEarnings, tvCompletedTrips; // <-- NEW
+    private TextView tvWeeklyEarnings, tvCompletedTrips;
 
     private LinearLayout navDashboard, navTrips, navRequests, navSettings;
 
     private DatabaseReference schedulesRef;
 
     private String driverPhone;
-    private int totalBookingsToday = 0;
-    private double todayEarnings = 0.0;
 
     private final ZoneId PH_ZONE = ZoneId.of("Asia/Manila");
 
@@ -69,8 +66,8 @@ public class DashboardActivity extends AppCompatActivity {
         tvTodayEarnings = findViewById(R.id.tvTodayEarnings);
         tvPendingBookings = findViewById(R.id.tvPendingBookings);
 
-        tvWeeklyEarnings = findViewById(R.id.tvWeeklyEarnings); // <-- Initialize Weekly
-        tvCompletedTrips = findViewById(R.id.tvCompletedTrips);   // <-- Initialize Completed Trips
+        tvWeeklyEarnings = findViewById(R.id.tvWeeklyEarnings);
+        tvCompletedTrips = findViewById(R.id.tvCompletedTrips);
 
         navDashboard = findViewById(R.id.navDashboard);
         navTrips = findViewById(R.id.navTrips);
@@ -123,30 +120,34 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     // ----------------------------
-    // Today’s Bookings + Earnings + Pending + Weekly + Completed Trips
+    // Today’s Bookings + Earnings + Pending + Semi-Monthly + Completed Trips
     // ----------------------------
     private void loadTodaysData() {
         LocalDate today = LocalDate.now(PH_ZONE);
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mma", Locale.US);
 
-        // Compute start of week (Sunday)
-        LocalDate startOfWeek = today;
-        while (startOfWeek.getDayOfWeek() != DayOfWeek.SUNDAY) {
-            startOfWeek = startOfWeek.minusDays(1);
+        // Determine semi-monthly cutoff
+        int day = today.getDayOfMonth();
+        LocalDate cutoffStart;
+        LocalDate cutoffEnd;
+        if (day <= 15) {
+            cutoffStart = today.withDayOfMonth(1);
+            cutoffEnd = today.withDayOfMonth(15);
+        } else {
+            cutoffStart = today.withDayOfMonth(16);
+            cutoffEnd = today.withDayOfMonth(today.lengthOfMonth());
         }
 
-        LocalDate finalStartOfWeek = startOfWeek;
         schedulesRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 int totalBookingsToday = 0;
                 double todayEarnings = 0.0;
                 int pendingBookingsToday = 0;
-                double weeklyEarnings = 0.0;
+                double semiMonthlyEarnings = 0.0;
                 int completedTrips = 0;
 
                 for (DataSnapshot sched : snapshot.getChildren()) {
-
                     String phone = sched.child("current")
                             .child("cellPhone")
                             .getValue(String.class);
@@ -196,19 +197,19 @@ public class DashboardActivity extends AppCompatActivity {
                     }
 
                     // ----------------------------
-                    // Weekly Earnings (Completed trips from Sunday to today)
+                    // Semi-Monthly Earnings (Completed trips within cutoff)
                     // ----------------------------
-                    if (!tripDate.isBefore(finalStartOfWeek) && !tripDate.isAfter(today)
+                    if (!tripDate.isBefore(cutoffStart) && !tripDate.isAfter(cutoffEnd)
                             && "Completed".equalsIgnoreCase(status)) {
                         Object rateObj = sched.child("driverRate").getValue();
                         if (rateObj != null) {
                             try {
                                 if (rateObj instanceof Long) {
-                                    weeklyEarnings += ((Long) rateObj).doubleValue();
+                                    semiMonthlyEarnings += ((Long) rateObj).doubleValue();
                                 } else if (rateObj instanceof Double) {
-                                    weeklyEarnings += (Double) rateObj;
+                                    semiMonthlyEarnings += (Double) rateObj;
                                 } else {
-                                    weeklyEarnings += Double.parseDouble(rateObj.toString());
+                                    semiMonthlyEarnings += Double.parseDouble(rateObj.toString());
                                 }
                             } catch (NumberFormatException ignored) {}
                         }
@@ -226,7 +227,7 @@ public class DashboardActivity extends AppCompatActivity {
                 tvTotalBookings.setText(String.valueOf(totalBookingsToday));
                 tvPendingBookings.setText(String.valueOf(pendingBookingsToday));
                 tvTodayEarnings.setText("₱" + String.format(Locale.US, "%.2f", todayEarnings));
-                tvWeeklyEarnings.setText("₱" + String.format(Locale.US, "%.2f", weeklyEarnings));
+                tvWeeklyEarnings.setText("₱" + String.format(Locale.US, "%.2f", semiMonthlyEarnings));
                 tvCompletedTrips.setText(String.valueOf(completedTrips));
             }
 
