@@ -1,9 +1,8 @@
 package com.zyacodes.olstar.drivers;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.os.Bundle;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -14,11 +13,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.*;
 import com.zyacodes.olstar.R;
 
 import java.time.LocalDate;
@@ -75,34 +70,6 @@ public class DashboardActivity extends AppCompatActivity {
         navSettings = findViewById(R.id.navSettings);
     }
 
-    private void setupBottomNavigation() {
-        navDashboard.setOnClickListener(v -> selectNav(navDashboard));
-        navTrips.setOnClickListener(v -> selectNav(navTrips));
-        navRequests.setOnClickListener(v -> selectNav(navRequests));
-        navSettings.setOnClickListener(v -> selectNav(navSettings));
-        selectNav(navDashboard);
-    }
-
-    private void selectNav(LinearLayout selected) {
-        resetNav(navDashboard);
-        resetNav(navTrips);
-        resetNav(navRequests);
-        resetNav(navSettings);
-
-        TextView label = (TextView) selected.getChildAt(1);
-        label.setTextColor(Color.parseColor("#FFFF00"));
-    }
-
-    private void resetNav(LinearLayout nav) {
-        ImageView icon = (ImageView) nav.getChildAt(0);
-        TextView label = (TextView) nav.getChildAt(1);
-        icon.setColorFilter(Color.WHITE);
-        label.setTextColor(Color.WHITE);
-    }
-
-    // ----------------------------
-    // Load SharedPreferences
-    // ----------------------------
     private void loadUserFromPrefs() {
         SharedPreferences prefs = getSharedPreferences("login", MODE_PRIVATE);
         driverPhone = prefs.getString("phone", null);
@@ -119,14 +86,10 @@ public class DashboardActivity extends AppCompatActivity {
         schedulesRef = db.getReference("schedules");
     }
 
-    // ----------------------------
-    // Today’s Bookings + Earnings + Pending + Semi-Monthly + Completed Trips
-    // ----------------------------
     private void loadTodaysData() {
         LocalDate today = LocalDate.now(PH_ZONE);
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mma", Locale.US);
 
-        // Determine semi-monthly cutoff
         int day = today.getDayOfMonth();
         LocalDate cutoffStart;
         LocalDate cutoffEnd;
@@ -168,9 +131,6 @@ public class DashboardActivity extends AppCompatActivity {
                         continue;
                     }
 
-                    // ----------------------------
-                    // Today's Bookings & Pending
-                    // ----------------------------
                     if (tripDate.equals(today)) {
                         totalBookingsToday++;
                         if ("Pending".equalsIgnoreCase(status)) {
@@ -178,9 +138,6 @@ public class DashboardActivity extends AppCompatActivity {
                         }
                     }
 
-                    // ----------------------------
-                    // Today's Earnings
-                    // ----------------------------
                     if (tripDate.equals(today) && "Completed".equalsIgnoreCase(status)) {
                         Object rateObj = sched.child("driverRate").getValue();
                         if (rateObj != null) {
@@ -196,9 +153,6 @@ public class DashboardActivity extends AppCompatActivity {
                         }
                     }
 
-                    // ----------------------------
-                    // Semi-Monthly Earnings (Completed trips within cutoff)
-                    // ----------------------------
                     if (!tripDate.isBefore(cutoffStart) && !tripDate.isAfter(cutoffEnd)
                             && "Completed".equalsIgnoreCase(status)) {
                         Object rateObj = sched.child("driverRate").getValue();
@@ -215,15 +169,11 @@ public class DashboardActivity extends AppCompatActivity {
                         }
                     }
 
-                    // ----------------------------
-                    // Completed Trips (all time)
-                    // ----------------------------
                     if ("Completed".equalsIgnoreCase(status)) {
                         completedTrips++;
                     }
                 }
 
-                // Update UI
                 tvTotalBookings.setText(String.valueOf(totalBookingsToday));
                 tvPendingBookings.setText(String.valueOf(pendingBookingsToday));
                 tvTodayEarnings.setText("₱" + String.format(Locale.US, "%.2f", todayEarnings));
@@ -235,6 +185,35 @@ public class DashboardActivity extends AppCompatActivity {
             public void onCancelled(@NonNull DatabaseError error) {
                 Toast.makeText(DashboardActivity.this, error.getMessage(), Toast.LENGTH_LONG).show();
             }
+        });
+    }
+
+    private void setupBottomNavigation() {
+
+        navDashboard.setOnClickListener(v -> {
+            // Already on Dashboard → do nothing
+        });
+
+        navTrips.setOnClickListener(v -> {
+            Intent intent = new Intent(this, TripsActivity.class);
+            startActivity(intent);
+            // Fade animation
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            finish();
+        });
+
+        navRequests.setOnClickListener(v -> {
+            Intent intent = new Intent(this, RequestsActivity.class);
+            startActivity(intent);
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            finish();
+        });
+
+        navSettings.setOnClickListener(v -> {
+            Intent intent = new Intent(this, SettingsActivity.class);
+            startActivity(intent);
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            finish();
         });
     }
 }
