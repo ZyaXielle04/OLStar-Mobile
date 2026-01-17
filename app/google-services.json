@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "878203029206",
+    "firebase_url": "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "olstar-5e642",
+    "storage_bucket": "olstar-5e642.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:878203029206:android:0779d19b6878dbe033eb77",
+        "android_client_info": {
+          "package_name": "com.zyacodes.olstar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDl_n41-Xs02NRlNJpVw0oI6uJd1ubumlA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
