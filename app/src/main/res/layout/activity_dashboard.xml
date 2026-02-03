@@ -10,6 +10,7 @@
     android:background="#FFFFFF">
 
     <!-- Scrollable Content -->
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -215,102 +216,127 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- Bottom Navigation -->
-    <LinearLayout
+    <!-- Bottom Navigation (Scrollable) -->
+    <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="60dp"
-        android:orientation="horizontal"
-        android:background="#172747"
-        android:gravity="center">
+        android:fillViewport="true"
+        android:scrollbars="none"
+        android:background="#172747">
 
-        <!-- Dashboard -->
         <LinearLayout
-            android:id="@+id/navDashboard"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
+            android:orientation="horizontal"
             android:gravity="center">
 
-            <ImageView
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:src="@drawable/ic_dashboard"/>
+            <!-- Dashboard -->
+            <LinearLayout
+                android:id="@+id/navDashboard"
+                android:layout_width="80dp"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center">
 
-            <TextView
-                android:text="Dashboard"
-                android:textSize="12sp"
-                android:layout_height="wrap_content"
-                android:layout_width="wrap_content"
-                android:textColor="#FFFF00"/>
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_dashboard"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Dashboard"
+                    android:textSize="12sp"
+                    android:textColor="#FFFF00"/>
+            </LinearLayout>
+
+            <!-- Trips -->
+            <LinearLayout
+                android:id="@+id/navTrips"
+                android:layout_width="80dp"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_trips"
+                    app:tint="#FFFFFF"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Trips"
+                    android:textSize="12sp"
+                    android:textColor="#FFFFFF"/>
+            </LinearLayout>
+
+            <!-- Requests -->
+            <LinearLayout
+                android:id="@+id/navRequests"
+                android:layout_width="80dp"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_request"
+                    app:tint="#FFFFFF"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Requests"
+                    android:textSize="12sp"
+                    android:textColor="#FFFFFF"/>
+            </LinearLayout>
+
+            <!-- History -->
+            <LinearLayout
+                android:id="@+id/navHistory"
+                android:layout_width="80dp"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_history"
+                    app:tint="@android:color/white"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="History"
+                    android:textSize="12sp"
+                    android:textColor="#FFFFFF"/>
+            </LinearLayout>
+
+            <!-- Settings -->
+            <LinearLayout
+                android:id="@+id/navSettings"
+                android:layout_width="80dp"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_settings"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Settings"
+                    android:textSize="12sp"
+                    android:textColor="#FFFFFF"/>
+            </LinearLayout>
         </LinearLayout>
-
-        <!-- Trips -->
-        <LinearLayout
-            android:id="@+id/navTrips"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <ImageView
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:src="@drawable/ic_trips"
-                app:tint="#FFFFFF" />
-
-            <TextView
-                android:text="Trips"
-                android:textSize="12sp"
-                android:layout_height="wrap_content"
-                android:layout_width="wrap_content"
-                android:textColor="#FFFFFF"/>
-        </LinearLayout>
-
-        <!-- Requests -->
-        <LinearLayout
-            android:id="@+id/navRequests"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <ImageView
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:src="@drawable/ic_request"
-                app:tint="#FFFFFF" />
-
-            <TextView
-                android:text="Requests"
-                android:textSize="12sp"
-                android:layout_height="wrap_content"
-                android:layout_width="wrap_content"
-                android:textColor="#FFFFFF"/>
-        </LinearLayout>
-
-        <!-- Settings -->
-        <LinearLayout
-            android:id="@+id/navSettings"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <ImageView
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:src="@drawable/ic_settings"/>
-
-            <TextView
-                android:text="Settings"
-                android:textSize="12sp"
-                android:layout_height="wrap_content"
-                android:layout_width="wrap_content"
-                android:textColor="#FFFFFF"/>
-        </LinearLayout>
-    </LinearLayout>
+    </HorizontalScrollView>
 </LinearLayout>

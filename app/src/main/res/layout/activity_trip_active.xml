@@ -1,0 +1,50 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Google Navigation SDK map -->
+    <com.google.android.libraries.navigation.NavigationView
+        android:id="@+id/navigation_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:id="@+id/tvDestination"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Destination:" />
+
+        <TextView
+            android:id="@+id/tvDirection"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="DropOff:" />
+
+        <TextView
+            android:id="@+id/tvDistance"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Distance:" />
+
+        <SeekBar
+            android:id="@+id/slideArrivedPickup"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="3dp"
+            android:max="100"
+            android:progress="3"
+            android:thumb="@drawable/slider_thumb"
+            android:progressDrawable="@drawable/slider_track"
+            android:splitTrack="false"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</LinearLayout>

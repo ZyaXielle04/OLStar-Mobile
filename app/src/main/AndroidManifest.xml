@@ -2,8 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="true" />
+
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
     <application
         android:allowBackup="true"
@@ -14,6 +22,32 @@
         android:roundIcon="@drawable/ic_car"
         android:supportsRtl="true"
         android:theme="@style/Theme.OLStar">
+        <activity
+            android:name=".drivers.HistoryActivity"
+            android:exported="false" />
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyBZwE8kSgkloKvNgOEKhJUVyNS2He2NqT0" /> <!-- ✅ REQUIRED FOR CAMERA PHOTO CAPTURE -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.zyacodes.olstar.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <service
+            android:name=".services.LocationTrackingService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <activity
+            android:name=".drivers.TripActiveActivity"
+            android:exported="false" />
         <activity
             android:name=".drivers.SettingsActivity"
             android:exported="false" />
@@ -28,13 +62,13 @@
             android:exported="false" />
         <activity
             android:name=".SplashScreen"
-            android:exported="true"> <!-- <- Must be true for launcher -->
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity> <!-- Main Activity -->
+        </activity>
         <activity
             android:name=".MainActivity"
             android:exported="false" />

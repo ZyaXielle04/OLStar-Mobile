@@ -14,6 +14,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.firebase.database.*;
+import com.zyacodes.olstar.GasPaymentDialog;
 import com.zyacodes.olstar.R;
 
 import java.time.LocalDate;
@@ -22,12 +23,14 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
+import com.zyacodes.olstar.controllers.GlobalFabController;
+
 public class DashboardActivity extends AppCompatActivity {
 
     private TextView tvTotalBookings, tvTodayEarnings, tvPendingBookings;
     private TextView tvWeeklyEarnings, tvCompletedTrips;
 
-    private LinearLayout navDashboard, navTrips, navRequests, navSettings;
+    private LinearLayout navDashboard, navTrips, navRequests, navSettings, navHistory;
 
     private DatabaseReference schedulesRef;
 
@@ -39,6 +42,11 @@ public class DashboardActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dashboard);
+
+        GlobalFabController.attach(this, v -> {
+            GasPaymentDialog.show(this);
+        });
+
 
         // Handle system bar insets
         ViewCompat.setOnApplyWindowInsetsListener(
@@ -56,6 +64,12 @@ public class DashboardActivity extends AppCompatActivity {
         loadTodaysData();
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        GasPaymentDialog.handleActivityResult(requestCode, resultCode, data, this);
+    }
+
     private void initViews() {
         tvTotalBookings = findViewById(R.id.tvTotalBookings);
         tvTodayEarnings = findViewById(R.id.tvTodayEarnings);
@@ -68,6 +82,7 @@ public class DashboardActivity extends AppCompatActivity {
         navTrips = findViewById(R.id.navTrips);
         navRequests = findViewById(R.id.navRequests);
         navSettings = findViewById(R.id.navSettings);
+        navHistory = findViewById(R.id.navHistory);
     }
 
     private void loadUserFromPrefs() {
@@ -196,6 +211,14 @@ public class DashboardActivity extends AppCompatActivity {
 
         navTrips.setOnClickListener(v -> {
             Intent intent = new Intent(this, TripsActivity.class);
+            startActivity(intent);
+            // Fade animation
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            finish();
+        });
+
+        navHistory.setOnClickListener(v -> {
+            Intent intent = new Intent(this, HistoryActivity.class);
             startActivity(intent);
             // Fade animation
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);

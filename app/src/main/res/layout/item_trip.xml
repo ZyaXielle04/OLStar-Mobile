@@ -7,54 +7,158 @@
     android:padding="14dp"
     android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/tvTripId"
-        android:text="Trip ID"
-        android:textStyle="bold"
-        android:textSize="16sp"
-        android:textColor="#172747"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_card"
+        android:elevation="5dp">
 
-    <TextView
-        android:id="@+id/tvPickup"
-        android:text="Pickup"
-        android:textSize="14sp"
-        android:textColor="#555555"
-        android:layout_marginTop="4dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        <!-- Horizontal layout for Trip ID and Flight No. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
-    <TextView
-        android:id="@+id/tvDropoff"
-        android:text="Drop-off"
-        android:textSize="14sp"
-        android:textColor="#555555"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+            <TextView
+                android:id="@+id/tvTripId"
+                android:text="Trip ID"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="#172747"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"/>
 
-    <TextView
-        android:id="@+id/tvDate"
-        android:text="Date"
-        android:textSize="14sp"
-        android:textColor="#555555"
-        android:layout_marginTop="4dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+            <TextView
+                android:id="@+id/tvFlightNo"
+                android:text="Flight No."
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="#172747"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
 
-    <TextView
-        android:id="@+id/tvTime"
-        android:text="Time"
-        android:textSize="14sp"
-        android:textColor="#555555"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        <TextView
+            android:id="@+id/tvPickup"
+            android:text="Pickup"
+            android:textSize="14sp"
+            android:textColor="#555555"
+            android:layout_marginTop="4dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
 
-    <TextView
-        android:id="@+id/tvStatus"
-        android:text="Status"
-        android:textSize="14sp"
-        android:layout_marginTop="6dp"
+        <TextView
+            android:id="@+id/tvDropoff"
+            android:text="Drop-off"
+            android:textSize="14sp"
+            android:textColor="#555555"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+        <TextView
+            android:id="@+id/tvDate"
+            android:text="Date"
+            android:textSize="14sp"
+            android:textColor="#555555"
+            android:layout_marginTop="4dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+        <TextView
+            android:id="@+id/tvTime"
+            android:text="Time"
+            android:textSize="14sp"
+            android:textColor="#555555"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:text="Status"
+            android:textSize="14sp"
+            android:layout_marginTop="6dp"
+            android:layout_width="wrap_content"
+            android:textColor="@android:color/black"
+            android:layout_height="wrap_content"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_card"
+        android:elevation="5dp"
+        android:layout_marginTop="20dp">
+
+        <TextView
+            android:id="@+id/ETA"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Estimated Time of Arrival: "
+            android:textColor="@android:color/black"
+            android:textSize="15sp"/>
+
+        <TextView
+            android:id="@+id/ETAUpdate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Last updated: "
+            android:textColor="@android:color/black"
+            android:textSize="15sp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="The estimated time of arrival might be off by 5 to 10 minutes. This information is calculated manually based on Aviation Edge Fetch API. For additional and more accurate information, visit FlightAware by clicking the button below."
+            android:textColor="@android:color/black"
+            android:textAlignment="center" />
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnFlightAware"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="20dp"
+        android:backgroundTint="@color/grey"
+        android:textColor="@color/font_white"
+        android:text="Visit FlightAware to see Flight Details"/>
+
+    <SeekBar
+        android:id="@+id/slideConfirm"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_marginTop="8dp"
+        android:max="100"
+        android:progress="3"
+        android:thumb="@drawable/slider_thumb"
+        android:progressDrawable="@drawable/slider_track"
+        android:splitTrack="false"
+        />
+
+    <Button
+        android:id="@+id/backToActiveTrip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="Get Back to My Current Trip"
+        android:backgroundTint="@color/grey"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"/>
+
+    <!-- NEW: Set Alarm Button -->
+    <Button
+        android:id="@+id/btnSetAlarm"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="Set Alarm for Trip"
+        android:backgroundTint="@color/grey"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"/>
 </LinearLayout>

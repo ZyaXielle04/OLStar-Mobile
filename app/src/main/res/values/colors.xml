@@ -5,4 +5,5 @@
     <color name="secondary_bg">#427AA1</color>
     <color name="font_white">#EBF2FA</color>
     <color name="font_black">#0C0C0C</color>
+    <color name="FAB">#72999D</color>
 </resources>

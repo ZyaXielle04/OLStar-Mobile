@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.firebase.database.*;
+import com.zyacodes.olstar.GasPaymentDialog;
 import com.zyacodes.olstar.R;
 import com.zyacodes.olstar.adapters.TripAdapter;
 import com.zyacodes.olstar.models.TripModel;
@@ -26,6 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import com.zyacodes.olstar.controllers.GlobalFabController;
+
 public class TripsActivity extends AppCompatActivity {
 
     private RecyclerView rvTrips;
@@ -33,10 +36,11 @@ public class TripsActivity extends AppCompatActivity {
     private List<TripModel> tripList;
     private TextView tvEmpty;
 
-    private LinearLayout navDashboard, navTrips, navRequests, navSettings;
+    private LinearLayout navDashboard, navTrips, navRequests, navSettings, navHistory;
 
     private DatabaseReference schedulesRef;
     private String driverPhone;
+
     private final ZoneId PH_ZONE = ZoneId.of("Asia/Manila");
 
     private final DateTimeFormatter TIME_FORMATTER =
@@ -47,6 +51,10 @@ public class TripsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_trips);
 
+        GlobalFabController.attach(this, v -> {
+            GasPaymentDialog.show(this);
+        });
+
         rvTrips = findViewById(R.id.rvTrips);
         rvTrips.setLayoutManager(new LinearLayoutManager(this));
 
@@ -56,40 +64,46 @@ public class TripsActivity extends AppCompatActivity {
         adapter = new TripAdapter(tripList);
         rvTrips.setAdapter(adapter);
 
-        // Bottom Navigation
         navDashboard = findViewById(R.id.navDashboard);
         navTrips = findViewById(R.id.navTrips);
         navRequests = findViewById(R.id.navRequests);
         navSettings = findViewById(R.id.navSettings);
+        navHistory = findViewById(R.id.navHistory);
 
         setupNavBar();
-
         loadUserFromPrefs();
         setupFirebase();
         loadTodayTrips();
     }
 
     private void setupNavBar() {
-        // Dashboard click
         navDashboard.setOnClickListener(v -> {
-            startActivity(new Intent(TripsActivity.this, DashboardActivity.class));
+            startActivity(new Intent(this, DashboardActivity.class));
             overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
             finish();
         });
 
-        // Trips is current, just highlight (no action)
-        navTrips.setOnClickListener(v -> { });
+        navTrips.setOnClickListener(v -> {});
 
-        // Requests click
         navRequests.setOnClickListener(v -> {
-            startActivity(new Intent(TripsActivity.this, RequestsActivity.class));
+            startActivity(new Intent(this, RequestsActivity.class));
             overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
             finish();
         });
 
-        // Settings click
+        navHistory.setOnClickListener(v -> {
+            Intent intent = new Intent(this, HistoryActivity.class);
+            startActivity(intent);
+            // Fade animation
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            finish();
+        });
+
+
+
+
         navSettings.setOnClickListener(v -> {
-            startActivity(new Intent(TripsActivity.this, SettingsActivity.class));
+            startActivity(new Intent(this, SettingsActivity.class));
             overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
             finish();
         });
@@ -121,6 +135,7 @@ public class TripsActivity extends AppCompatActivity {
                 tripList.clear();
 
                 for (DataSnapshot sched : snapshot.getChildren()) {
+
                     String phone = sched.child("current")
                             .child("cellPhone")
                             .getValue(String.class);
@@ -139,10 +154,27 @@ public class TripsActivity extends AppCompatActivity {
 
                     if (!tripDate.equals(today)) continue;
 
+                    String status = sched.child("status").getValue(String.class);
+                    if (status == null) continue;
+
+                    // Hide Completed & Cancelled
+                    if ("Completed".equalsIgnoreCase(status)
+                            || "Cancelled".equalsIgnoreCase(status)) {
+                        continue;
+                    }
+
                     String pickup = sched.child("pickup").getValue(String.class);
                     String dropOff = sched.child("dropOff").getValue(String.class);
-                    String status = sched.child("status").getValue(String.class);
                     String time = sched.child("time").getValue(String.class);
+                    String clientName = sched.child("clientName").getValue(String.class);
+                    String tripType = sched.child("tripType").getValue(String.class);
+                    String driverRate = sched.child("driverRate").getValue(String.class);
+
+                    String flightNumber = "";
+                    if (sched.hasChild("flightNumber")) {
+                        flightNumber = sched.child("flightNumber").getValue(String.class);
+                        if (flightNumber == null) flightNumber = "";
+                    }
 
                     tripList.add(new TripModel(
                             sched.getKey(),
@@ -150,22 +182,20 @@ public class TripsActivity extends AppCompatActivity {
                             dropOff,
                             status,
                             dateStr,
-                            time
+                            time,
+                            flightNumber,
+                            clientName,
+                            tripType,
+                            driverRate
                     ));
                 }
 
-                // Sort trips by time ascending
-                tripList.sort((t1, t2) -> {
-                    try {
-                        LocalTime time1 = LocalTime.parse(t1.getTime(), TIME_FORMATTER);
-                        LocalTime time2 = LocalTime.parse(t2.getTime(), TIME_FORMATTER);
-                        return time1.compareTo(time2);
-                    } catch (Exception e) {
-                        return 0;
-                    }
-                });
+                // ✅ SAFE, RELIABLE SORT (earliest → latest)
+                tripList.sort((t1, t2) ->
+                        parseTimeSafe(t1.getTime())
+                                .compareTo(parseTimeSafe(t2.getTime()))
+                );
 
-                // Show/hide empty state
                 if (tripList.isEmpty()) {
                     tvEmpty.setVisibility(View.VISIBLE);
                     rvTrips.setVisibility(View.GONE);
@@ -179,9 +209,30 @@ public class TripsActivity extends AppCompatActivity {
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(TripsActivity.this,
-                        error.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(
+                        TripsActivity.this,
+                        error.getMessage(),
+                        Toast.LENGTH_LONG
+                ).show();
             }
         });
     }
+
+    // ---------------- SAFE TIME PARSER ----------------
+    private LocalTime parseTimeSafe(String raw) {
+        if (raw == null) return LocalTime.MAX;
+
+        try {
+            String clean = raw
+                    .trim()
+                    .toUpperCase(Locale.ENGLISH)
+                    .replace(" ", "");
+
+            return LocalTime.parse(clean, TIME_FORMATTER);
+
+        } catch (Exception e) {
+            return LocalTime.MAX; // push invalid times to bottom
+        }
+    }
 }
+
