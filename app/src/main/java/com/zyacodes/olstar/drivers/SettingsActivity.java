@@ -9,7 +9,9 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.zyacodes.olstar.GasPaymentDialog;
 import com.zyacodes.olstar.R;
+import com.zyacodes.olstar.controllers.GlobalFabController;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -19,6 +21,10 @@ public class SettingsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
+
+        GlobalFabController.attach(this, v -> {
+            GasPaymentDialog.show(this);
+        });
 
         // Handle system bar insets
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {

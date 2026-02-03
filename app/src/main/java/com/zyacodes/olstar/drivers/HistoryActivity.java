@@ -18,8 +18,10 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.zyacodes.olstar.GasPaymentDialog;
 import com.zyacodes.olstar.R;
 import com.zyacodes.olstar.adapters.HistoryAdapter;
+import com.zyacodes.olstar.controllers.GlobalFabController;
 import com.zyacodes.olstar.models.TripModel;
 
 import java.text.ParseException;
@@ -44,6 +46,10 @@ public class HistoryActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_history);
+
+        GlobalFabController.attach(this, v -> {
+            GasPaymentDialog.show(this);
+        });
 
         recyclerHistory = findViewById(R.id.recyclerHistory);
         tvEmptyHistory = findViewById(R.id.tvEmptyHistory);
