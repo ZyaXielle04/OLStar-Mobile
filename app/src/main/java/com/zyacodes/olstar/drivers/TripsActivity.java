@@ -1,33 +1,51 @@
 package com.zyacodes.olstar.drivers;
 
+import android.Manifest;
 import android.content.Intent;
-import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
+import android.net.Uri;
 import android.os.Bundle;
-import android.view.View;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.cloudinary.android.MediaManager;
+import com.cloudinary.android.callback.ErrorInfo;
+import com.cloudinary.android.callback.UploadCallback;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.firebase.database.*;
-import com.zyacodes.olstar.GasPaymentDialog;
 import com.zyacodes.olstar.R;
 import com.zyacodes.olstar.adapters.TripAdapter;
+import com.zyacodes.olstar.controllers.GlobalFabController;
 import com.zyacodes.olstar.models.TripModel;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
-import com.zyacodes.olstar.controllers.GlobalFabController;
+import java.util.*;
 
 public class TripsActivity extends AppCompatActivity {
 
@@ -35,84 +53,93 @@ public class TripsActivity extends AppCompatActivity {
     private TripAdapter adapter;
     private List<TripModel> tripList;
     private TextView tvEmpty;
-
-    private LinearLayout navDashboard, navTrips, navRequests, navSettings, navHistory;
-
     private DatabaseReference schedulesRef;
     private String driverPhone;
 
     private final ZoneId PH_ZONE = ZoneId.of("Asia/Manila");
 
-    private final DateTimeFormatter TIME_FORMATTER =
-            DateTimeFormatter.ofPattern("h:mma", Locale.ENGLISH); // 7:30AM / 11:45PM
+    private Uri currentPhotoUri;
+    private String currentPhotoType;
+    private TripModel currentTripForPhoto;
+    private ActivityResultLauncher<Intent> cameraLauncher;
+
+    private LinearLayout navDashboard, navTrips, navRequests, navSettings, navHistory;
+    private static final int REQUEST_CAMERA_PERMISSION = 101;
+    private TextView tvDate;
+
+    private FusedLocationProviderClient fusedLocationClient;
+    private String currentCoordinates = "Unknown";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_trips);
 
-        GlobalFabController.attach(this, v -> {
-            GasPaymentDialog.show(this);
-        });
-
         rvTrips = findViewById(R.id.rvTrips);
         rvTrips.setLayoutManager(new LinearLayoutManager(this));
 
         tvEmpty = findViewById(R.id.tvEmpty);
+        tvDate = findViewById(R.id.tvDate);
 
         tripList = new ArrayList<>();
-        adapter = new TripAdapter(tripList);
+        adapter = new TripAdapter(this, tripList, this::onTakePhoto);
         rvTrips.setAdapter(adapter);
 
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        initViews();
+        setupBottomNavigation();
+        loadUserFromPrefs();
+        setupFirebase();
+        loadTodayTrips();
+        initCloudinary();
+        initCameraLauncher();
+        displayCurrentDate();
+    }
+
+    private void displayCurrentDate() {
+        DateTimeFormatter formatter =
+                DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy", Locale.US);
+        tvDate.setText(LocalDate.now(PH_ZONE).format(formatter));
+    }
+
+    private void initViews() {
         navDashboard = findViewById(R.id.navDashboard);
         navTrips = findViewById(R.id.navTrips);
         navRequests = findViewById(R.id.navRequests);
         navSettings = findViewById(R.id.navSettings);
         navHistory = findViewById(R.id.navHistory);
-
-        setupNavBar();
-        loadUserFromPrefs();
-        setupFirebase();
-        loadTodayTrips();
     }
 
-    private void setupNavBar() {
+    private void setupBottomNavigation() {
         navDashboard.setOnClickListener(v -> {
             startActivity(new Intent(this, DashboardActivity.class));
-            overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
-            finish();
-        });
-
-        navTrips.setOnClickListener(v -> {});
-
-        navRequests.setOnClickListener(v -> {
-            startActivity(new Intent(this, RequestsActivity.class));
-            overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
-            finish();
-        });
-
-        navHistory.setOnClickListener(v -> {
-            Intent intent = new Intent(this, HistoryActivity.class);
-            startActivity(intent);
-            // Fade animation
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             finish();
         });
 
+        navHistory.setOnClickListener(v -> {
+            startActivity(new Intent(this, HistoryActivity.class));
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            finish();
+        });
 
-
+        navRequests.setOnClickListener(v -> {
+            startActivity(new Intent(this, RequestsActivity.class));
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            finish();
+        });
 
         navSettings.setOnClickListener(v -> {
             startActivity(new Intent(this, SettingsActivity.class));
-            overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             finish();
         });
     }
 
     private void loadUserFromPrefs() {
-        SharedPreferences prefs = getSharedPreferences("login", MODE_PRIVATE);
-        driverPhone = prefs.getString("phone", null);
-
+        driverPhone = getSharedPreferences("login", MODE_PRIVATE)
+                .getString("phone", null);
         if (driverPhone == null) {
             Toast.makeText(this, "Session expired. Please login again.", Toast.LENGTH_LONG).show();
             finish();
@@ -120,14 +147,21 @@ public class TripsActivity extends AppCompatActivity {
     }
 
     private void setupFirebase() {
-        FirebaseDatabase db = FirebaseDatabase.getInstance(
+        schedulesRef = FirebaseDatabase.getInstance(
                 "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/"
-        );
-        schedulesRef = db.getReference("schedules");
+        ).getReference("schedules");
     }
 
+    /**
+     * ✅ TODAY + TOMORROW
+     * ✅ Sorted: Today a→b, Tomorrow a→b
+     */
     private void loadTodayTrips() {
         LocalDate today = LocalDate.now(PH_ZONE);
+        LocalDate tomorrow = today.plusDays(1);
+
+        DateTimeFormatter timeFormatter =
+                DateTimeFormatter.ofPattern("h:mma", Locale.US);
 
         schedulesRef.addValueEventListener(new ValueEventListener() {
             @Override
@@ -135,15 +169,12 @@ public class TripsActivity extends AppCompatActivity {
                 tripList.clear();
 
                 for (DataSnapshot sched : snapshot.getChildren()) {
-
-                    String phone = sched.child("current")
-                            .child("cellPhone")
-                            .getValue(String.class);
-
+                    String phone = sched.child("current").child("cellPhone").getValue(String.class);
                     if (phone == null || !phone.equals(driverPhone)) continue;
 
                     String dateStr = sched.child("date").getValue(String.class);
-                    if (dateStr == null) continue;
+                    String status = sched.child("status").getValue(String.class);
+                    if (dateStr == null || status == null) continue;
 
                     LocalDate tripDate;
                     try {
@@ -152,87 +183,349 @@ public class TripsActivity extends AppCompatActivity {
                         continue;
                     }
 
-                    if (!tripDate.equals(today)) continue;
-
-                    String status = sched.child("status").getValue(String.class);
-                    if (status == null) continue;
-
-                    // Hide Completed & Cancelled
-                    if ("Completed".equalsIgnoreCase(status)
-                            || "Cancelled".equalsIgnoreCase(status)) {
+                    if (!(tripDate.equals(today) || tripDate.equals(tomorrow))) continue;
+                    if ("Completed".equalsIgnoreCase(status) || "Cancelled".equalsIgnoreCase(status))
                         continue;
-                    }
-
-                    String pickup = sched.child("pickup").getValue(String.class);
-                    String dropOff = sched.child("dropOff").getValue(String.class);
-                    String time = sched.child("time").getValue(String.class);
-                    String clientName = sched.child("clientName").getValue(String.class);
-                    String tripType = sched.child("tripType").getValue(String.class);
-                    String driverRate = sched.child("driverRate").getValue(String.class);
-
-                    String flightNumber = "";
-                    if (sched.hasChild("flightNumber")) {
-                        flightNumber = sched.child("flightNumber").getValue(String.class);
-                        if (flightNumber == null) flightNumber = "";
-                    }
 
                     tripList.add(new TripModel(
                             sched.getKey(),
-                            pickup,
-                            dropOff,
+                            sched.child("pickup").getValue(String.class),
+                            sched.child("dropOff").getValue(String.class),
                             status,
                             dateStr,
-                            time,
-                            flightNumber,
-                            clientName,
-                            tripType,
-                            driverRate
+                            sched.child("time").getValue(String.class),
+                            sched.child("flightNumber").getValue(String.class),
+                            sched.child("clientName").getValue(String.class),
+                            sched.child("tripType").getValue(String.class),
+                            sched.child("driverRate").getValue(String.class),
+                            sched.child("contactNumber").getValue(String.class),
+                            sched.child("current").child("driverName").getValue(String.class),
+                            driverPhone,
+                            sched.child("transportUnit").getValue(String.class),
+                            sched.child("unitType").getValue(String.class),
+                            sched.child("plateNumber").getValue(String.class),
+                            sched.child("color").getValue(String.class)
                     ));
                 }
 
-                // ✅ SAFE, RELIABLE SORT (earliest → latest)
-                tripList.sort((t1, t2) ->
-                        parseTimeSafe(t1.getTime())
-                                .compareTo(parseTimeSafe(t2.getTime()))
-                );
+                Collections.sort(tripList, (t1, t2) -> {
+                    try {
+                        LocalDate d1 = LocalDate.parse(t1.getDate());
+                        LocalDate d2 = LocalDate.parse(t2.getDate());
 
-                if (tripList.isEmpty()) {
-                    tvEmpty.setVisibility(View.VISIBLE);
-                    rvTrips.setVisibility(View.GONE);
-                } else {
-                    tvEmpty.setVisibility(View.GONE);
-                    rvTrips.setVisibility(View.VISIBLE);
-                }
+                        int dateCompare = d1.compareTo(d2);
+                        if (dateCompare != 0) return dateCompare;
 
+                        String time1 = t1.getTime().replace("12Noon", "12:00PM").toUpperCase().trim();
+                        String time2 = t2.getTime().replace("12Noon", "12:00PM").toUpperCase().trim();
+
+                        LocalTime lt1 = LocalTime.parse(time1, timeFormatter);
+                        LocalTime lt2 = LocalTime.parse(time2, timeFormatter);
+
+                        return lt1.compareTo(lt2);
+                    } catch (Exception e) {
+                        return 0;
+                    }
+                });
+
+                tvEmpty.setVisibility(tripList.isEmpty() ? TextView.VISIBLE : TextView.GONE);
+                rvTrips.setVisibility(tripList.isEmpty() ? RecyclerView.GONE : RecyclerView.VISIBLE);
                 adapter.notifyDataSetChanged();
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(
-                        TripsActivity.this,
-                        error.getMessage(),
-                        Toast.LENGTH_LONG
-                ).show();
+                Toast.makeText(TripsActivity.this, error.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }
 
-    // ---------------- SAFE TIME PARSER ----------------
-    private LocalTime parseTimeSafe(String raw) {
-        if (raw == null) return LocalTime.MAX;
-
+    // ---------------- CAMERA / CLOUDINARY ----------------
+    private void initCloudinary() {
         try {
-            String clean = raw
-                    .trim()
-                    .toUpperCase(Locale.ENGLISH)
-                    .replace(" ", "");
+            Map<String, Object> config = new HashMap<>();
+            config.put("cloud_name", "dekdyp7bb");
+            config.put("api_key", "214836573954892");
+            MediaManager.init(this, config);
+        } catch (IllegalStateException ignored) {}
+    }
 
-            return LocalTime.parse(clean, TIME_FORMATTER);
+    private void initCameraLauncher() {
+        cameraLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && currentTripForPhoto != null) {
+                        if (currentPhotoUri != null) {
+                            fetchCoordinatesAndAnnotate();
+                        }
+                    } else {
+                        Toast.makeText(this, "Photo is required!", Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
+    }
 
+    // ------------------ ANNOTATE IMAGE WITH DETAILS ------------------
+    private void fetchCoordinatesAndAnnotate() {
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.getLastLocation()
+                    .addOnSuccessListener(location -> {
+                        if (location != null) {
+                            // Store raw coordinates
+                            String coords = location.getLatitude() + ", " + location.getLongitude();
+                            // Geocode address
+                            String address = getAddressFromCoordinates(location.getLatitude(), location.getLongitude());
+                            currentCoordinates = coords + " (" + address + ")";
+                        } else {
+                            currentCoordinates = "Unknown Location";
+                        }
+                        annotateAndSavePhoto();
+                    })
+                    .addOnFailureListener(e -> {
+                        currentCoordinates = "Unknown Location";
+                        annotateAndSavePhoto();
+                    });
+        } else {
+            currentCoordinates = "Unknown Location";
+            annotateAndSavePhoto();
+        }
+    }
+
+    private void annotateAndSavePhoto() {
+        String dateTime = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(new Date());
+
+        Bitmap annotatedBitmap = burnTextOnImage(currentPhotoUri,
+                currentTripForPhoto.getDriverName(),
+                currentTripForPhoto.getClientName(),
+                dateTime,
+                currentCoordinates);
+
+        if (annotatedBitmap != null) {
+            try {
+                File annotatedFile = new File(getExternalFilesDir(Environment.DIRECTORY_PICTURES),
+                        "OLStar/ANNOTATED_" + System.currentTimeMillis() + ".jpg");
+                if (!annotatedFile.getParentFile().exists()) annotatedFile.getParentFile().mkdirs();
+
+                FileOutputStream out = new FileOutputStream(annotatedFile);
+                annotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out);
+                out.flush();
+                out.close();
+
+                saveImageToGallery(annotatedFile);
+                currentPhotoUri = Uri.fromFile(annotatedFile);
+                uploadPhotoToCloudinary(currentTripForPhoto, currentPhotoType, currentPhotoUri);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Failed to save annotated image", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(this, "Failed to annotate image", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private Bitmap burnTextOnImage(Uri photoUri, String driverName, String clientName, String dateTime, String coordinates) {
+        try {
+            Bitmap original = MediaStore.Images.Media.getBitmap(getContentResolver(), photoUri);
+            Bitmap mutableBitmap = original.copy(Bitmap.Config.ARGB_8888, true);
+            Canvas canvas = new Canvas(mutableBitmap);
+
+            Paint paint = new Paint();
+            paint.setColor(Color.BLACK);
+            paint.setTextSize(125); // bigger text
+            paint.setAntiAlias(true);
+            paint.setShadowLayer(5f, 0f, 0f, Color.YELLOW);
+
+            int padding = 40;
+            float x, y;
+
+            List<String> lines = Arrays.asList(
+                    "Driver: " + driverName,
+                    "Client: " + clientName,
+                    "Date: " + dateTime,
+                    "Coordinates: " + coordinates // this will be wrapped
+            );
+
+            y = mutableBitmap.getHeight() - padding;
+
+            for (int i = lines.size() - 1; i >= 0; i--) {
+                String line = lines.get(i);
+
+                // Wrap long lines
+                List<String> wrapped = wrapText(line, paint, mutableBitmap.getWidth() - 2 * padding);
+
+                // Draw wrapped lines from bottom to top
+                for (int j = wrapped.size() - 1; j >= 0; j--) {
+                    String wrapLine = wrapped.get(j);
+                    float textWidth = paint.measureText(wrapLine);
+                    x = mutableBitmap.getWidth() - textWidth - padding; // right aligned
+                    canvas.drawText(wrapLine, x, y, paint);
+                    y -= paint.getTextSize() + 30;
+                }
+            }
+
+            return mutableBitmap;
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Split a string into multiple lines that fit within maxWidth
+     */
+    private List<String> wrapText(String text, Paint paint, float maxWidth) {
+        List<String> lines = new ArrayList<>();
+        String[] words = text.split(" ");
+        StringBuilder line = new StringBuilder();
+
+        for (String word : words) {
+            if (paint.measureText(line + " " + word) > maxWidth) {
+                lines.add(line.toString());
+                line = new StringBuilder(word);
+            } else {
+                if (line.length() > 0) line.append(" ");
+                line.append(word);
+            }
+        }
+
+        if (line.length() > 0) lines.add(line.toString());
+
+        return lines;
+    }
+
+    private String getAddressFromCoordinates(double latitude, double longitude) {
+        try {
+            Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+            List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
+            if (addresses != null && !addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                StringBuilder sb = new StringBuilder();
+                if (address.getThoroughfare() != null) sb.append(address.getThoroughfare()).append(", ");
+                if (address.getLocality() != null) sb.append(address.getLocality()).append(", ");
+                if (address.getAdminArea() != null) sb.append(address.getAdminArea()).append(", ");
+                if (address.getCountryName() != null) sb.append(address.getCountryName());
+                return sb.toString();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return "Unknown Location";
+    }
+
+    // ---------------- CAMERA / PHOTO LOGIC ----------------
+    public void onTakePhoto(TripModel trip, String photoType) {
+        currentTripForPhoto = trip;
+        currentPhotoType = photoType;
+
+        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
+        } else {
+            openCamera(trip, photoType);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if (requestCode == REQUEST_CAMERA_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (currentTripForPhoto != null && currentPhotoType != null) {
+                    openCamera(currentTripForPhoto, currentPhotoType);
+                }
+            } else {
+                Toast.makeText(this, "Camera permission is required to take a photo.", Toast.LENGTH_SHORT).show();
+            }
+        }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
+    private void openCamera(TripModel trip, String photoType) {
+        try {
+            File photoFile = createImageFile();
+            currentPhotoUri = FileProvider.getUriForFile(this,
+                    getPackageName() + ".provider",
+                    photoFile);
+
+            Intent i = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            i.putExtra(MediaStore.EXTRA_OUTPUT, currentPhotoUri);
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            cameraLauncher.launch(i);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Cannot open camera", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private File createImageFile() throws IOException {
+        String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        File dir = new File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "OLStar");
+        if (!dir.exists()) dir.mkdirs();
+        return File.createTempFile("PHOTO_" + ts, ".jpg", dir);
+    }
+
+    private void saveImageToGallery(File file) {
+        try {
+            Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+            Uri contentUri = Uri.fromFile(file);
+            mediaScanIntent.setData(contentUri);
+            sendBroadcast(mediaScanIntent);
+            Toast.makeText(this, "Saved to gallery", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            return LocalTime.MAX; // push invalid times to bottom
+            e.printStackTrace();
+        }
+    }
+
+    private void uploadPhotoToCloudinary(TripModel trip, String photoType, Uri uri) {
+        MediaManager.get()
+                .upload(uri)
+                .unsigned("OLStar")
+                .callback(new UploadCallback() {
+                    @Override
+                    public void onSuccess(String requestId, Map resultData) {
+                        String url = resultData.get("secure_url").toString();
+
+                        DatabaseReference photoRef = schedulesRef
+                                .child(trip.getTripId())
+                                .child("PhotoUrl")
+                                .child(photoType);
+
+                        photoRef.setValue(url).addOnSuccessListener(aVoid -> {
+                            String newStatus = getNextStatus(trip.getStatus());
+                            DatabaseReference statusRef = schedulesRef
+                                    .child(trip.getTripId())
+                                    .child("status");
+
+                            statusRef.setValue(newStatus).addOnSuccessListener(v -> {
+                                trip.setStatus(newStatus);
+                                int pos = tripList.indexOf(trip);
+                                if (pos != -1) adapter.notifyItemChanged(pos);
+
+                                Toast.makeText(TripsActivity.this,
+                                        "Photo uploaded & status updated to " + newStatus,
+                                        Toast.LENGTH_SHORT).show();
+                            });
+                        });
+                    }
+
+                    @Override public void onError(String requestId, ErrorInfo error) {
+                        Toast.makeText(TripsActivity.this, "Upload failed!", Toast.LENGTH_SHORT).show();
+                    }
+                    @Override public void onStart(String requestId) {}
+                    @Override public void onProgress(String requestId, long bytes, long totalBytes) {}
+                    @Override public void onReschedule(String requestId, ErrorInfo error) {}
+                })
+                .dispatch();
+    }
+
+    private String getNextStatus(String currentStatus) {
+        switch (currentStatus) {
+            case "Pending": return "Confirmed";
+            case "Confirmed": return "Arrived";
+            case "Arrived": return "On Route";
+            case "On Route": return "Completed";
+            default: return currentStatus;
         }
     }
 }
-

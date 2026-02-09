@@ -2,6 +2,7 @@ package com.zyacodes.olstar.drivers;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.widget.Button;
 import android.widget.LinearLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -9,22 +10,21 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.firebase.auth.FirebaseAuth;
 import com.zyacodes.olstar.GasPaymentDialog;
+import com.zyacodes.olstar.MainActivity;
 import com.zyacodes.olstar.R;
 import com.zyacodes.olstar.controllers.GlobalFabController;
 
 public class SettingsActivity extends AppCompatActivity {
 
     private LinearLayout navDashboard, navTrips, navRequests, navSettings, navHistory;
+    private Button btnLogout; // <-- Logout button
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
-
-        GlobalFabController.attach(this, v -> {
-            GasPaymentDialog.show(this);
-        });
 
         // Handle system bar insets
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -35,6 +35,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         initViews();
         setupBottomNavigation();
+        setupLogoutButton(); // <-- Initialize logout button
     }
 
     private void initViews() {
@@ -43,6 +44,8 @@ public class SettingsActivity extends AppCompatActivity {
         navRequests = findViewById(R.id.navRequests);
         navSettings = findViewById(R.id.navSettings);
         navHistory = findViewById(R.id.navHistory);
+
+        btnLogout = findViewById(R.id.btnLogout); // <-- bind button
     }
 
     private void setupBottomNavigation() {
@@ -77,6 +80,27 @@ public class SettingsActivity extends AppCompatActivity {
         // Settings → already on Settings, so no action
         navSettings.setOnClickListener(v -> {
             // Do nothing
+        });
+    }
+
+    // ---------------- Logout Button ----------------
+    private void setupLogoutButton() {
+        btnLogout.setOnClickListener(v -> {
+
+            // 1. Firebase sign out
+            FirebaseAuth.getInstance().signOut();
+
+            // 2. Clear saved login credentials
+            getSharedPreferences("login", MODE_PRIVATE)
+                    .edit()
+                    .clear()
+                    .apply();
+
+            // 3. Go to Login screen and clear back stack
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
         });
     }
 }

@@ -10,7 +10,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
     <application
@@ -31,13 +33,14 @@
             android:value="AIzaSyBZwE8kSgkloKvNgOEKhJUVyNS2He2NqT0" /> <!-- ✅ REQUIRED FOR CAMERA PHOTO CAPTURE -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.zyacodes.olstar.provider"
+            android:authorities="${applicationId}.provider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
 
         <service
             android:name=".services.LocationTrackingService"

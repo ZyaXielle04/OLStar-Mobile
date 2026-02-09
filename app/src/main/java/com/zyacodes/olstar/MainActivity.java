@@ -37,6 +37,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextInputEditText phoneInput, passwordInput;
     private Button loginBtn;
+
     private FirebaseAuth mAuth;
     private DatabaseReference usersRef;
     private ProgressDialog progressDialog;
@@ -63,18 +64,37 @@ public class MainActivity extends AppCompatActivity {
         progressDialog.setMessage("Logging in...");
         progressDialog.setCancelable(false);
 
-        loginBtn.setOnClickListener(v -> loginWithPhoneAndPassword());
-
+        checkSavedLogin();
         setupBiometricLogin();
-
-        // Request location permission & start service
         requestLocationPermissionAndStartService();
+
+        loginBtn.setOnClickListener(v -> loginWithPhoneAndPassword());
+    }
+
+    // ---------------- AUTO LOGIN ----------------
+    private void checkSavedLogin() {
+        SharedPreferences prefs = getSharedPreferences("login", MODE_PRIVATE);
+        String userId = prefs.getString("userId", null);
+        String email = prefs.getString("email", null);
+        String password = prefs.getString("password", null);
+        String phone = prefs.getString("phone", null);
+        String role = prefs.getString("role", null);
+
+        // ---- ADD THIS CHECK ----
+        if (userId == null || email == null || password == null
+                || phone == null || role == null) {
+            // Nothing to auto-login
+            return;
+        }
+
+        if (isUserPertinent(role)) {
+            loginWithEmail(email, password, phone, role);
+        }
     }
 
     // ---------------- LOCATION SERVICE ----------------
     private void requestLocationPermissionAndStartService() {
-        if (ContextCompat.checkSelfPermission(
-                this, Manifest.permission.ACCESS_FINE_LOCATION)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
 
             ActivityCompat.requestPermissions(
@@ -96,56 +116,16 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if (requestCode == LOCATION_PERMISSION_REQUEST &&
-                grantResults.length > 0 &&
-                grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startLocationService();
-        } else {
-            Toast.makeText(
-                    this,
-                    "Location permission is required for GPS tracking",
-                    Toast.LENGTH_LONG
-            ).show();
-        }
-    }
-
     // ---------------- BIOMETRIC ----------------
     private void setupBiometricLogin() {
         Executor executor = ContextCompat.getMainExecutor(this);
 
-        biometricPrompt = new BiometricPrompt(
-                MainActivity.this,
-                executor,
+        biometricPrompt = new BiometricPrompt(this, executor,
                 new BiometricPrompt.AuthenticationCallback() {
-
-                    @Override
-                    public void onAuthenticationError(
-                            int errorCode,
-                            @NonNull CharSequence errString) {
-                        super.onAuthenticationError(errorCode, errString);
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Authentication error: " + errString,
-                                Toast.LENGTH_SHORT
-                        ).show();
-                    }
 
                     @Override
                     public void onAuthenticationSucceeded(
                             @NonNull BiometricPrompt.AuthenticationResult result) {
-                        super.onAuthenticationSucceeded(result);
-
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Fingerprint recognized!",
-                                Toast.LENGTH_SHORT
-                        ).show();
 
                         SharedPreferences prefs =
                                 getSharedPreferences("login", MODE_PRIVATE);
@@ -156,34 +136,22 @@ public class MainActivity extends AppCompatActivity {
                         String role = prefs.getString("role", null);
 
                         if (email != null && password != null
-                                && phone != null && role != null) {
-
+                                && phone != null && role != null
+                                && isUserPertinent(role)) {
                             loginWithEmail(email, password, phone, role);
-
                         } else {
                             Toast.makeText(
                                     MainActivity.this,
-                                    "No saved credentials for fingerprint login.",
+                                    "No saved credentials",
                                     Toast.LENGTH_LONG
                             ).show();
                         }
                     }
-
-                    @Override
-                    public void onAuthenticationFailed() {
-                        super.onAuthenticationFailed();
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Fingerprint not recognized.",
-                                Toast.LENGTH_SHORT
-                        ).show();
-                    }
-                }
-        );
+                });
 
         promptInfo = new BiometricPrompt.PromptInfo.Builder()
                 .setTitle("Login with Fingerprint")
-                .setSubtitle("Use your fingerprint to login")
+                .setSubtitle("Use fingerprint to login")
                 .setNegativeButtonText("Cancel")
                 .build();
 
@@ -206,7 +174,6 @@ public class MainActivity extends AppCompatActivity {
             phoneInput.setError("Phone number required");
             return;
         }
-
         if (TextUtils.isEmpty(password)) {
             passwordInput.setError("Password required");
             return;
@@ -214,18 +181,15 @@ public class MainActivity extends AppCompatActivity {
 
         progressDialog.show();
 
-        usersRef.orderByChild("phone")
-                .equalTo(phone)
+        usersRef.orderByChild("phone").equalTo(phone)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
-
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
-
                         if (!snapshot.exists()) {
                             progressDialog.dismiss();
                             Toast.makeText(
                                     MainActivity.this,
-                                    "Phone number not registered",
+                                    "Phone not registered",
                                     Toast.LENGTH_SHORT
                             ).show();
                             return;
@@ -240,21 +204,11 @@ public class MainActivity extends AppCompatActivity {
                             break;
                         }
 
-                        if (email == null || email.isEmpty()) {
+                        if (!isUserPertinent(role)) {
                             progressDialog.dismiss();
                             Toast.makeText(
                                     MainActivity.this,
-                                    "Email not found for this phone",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-                            return;
-                        }
-
-                        if (role == null || !role.equalsIgnoreCase("driver")) {
-                            progressDialog.dismiss();
-                            Toast.makeText(
-                                    MainActivity.this,
-                                    "Access denied. Driver accounts only.",
+                                    "Drivers only",
                                     Toast.LENGTH_LONG
                             ).show();
                             return;
@@ -266,12 +220,7 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
                         progressDialog.dismiss();
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Database error: " + error.getMessage(),
-                                Toast.LENGTH_LONG
-                        ).show();
-                        Log.e("MainActivity", "Firebase DB error", error.toException());
+                        Log.e("MainActivity", error.getMessage());
                     }
                 });
     }
@@ -288,40 +237,30 @@ public class MainActivity extends AppCompatActivity {
                     progressDialog.dismiss();
 
                     if (task.isSuccessful()) {
-                        String uid = mAuth.getCurrentUser().getUid();
+                        String userId = mAuth.getCurrentUser().getUid();
 
-                        // ✅ SAVE ALL USER DATA
                         getSharedPreferences("login", MODE_PRIVATE)
                                 .edit()
-                                .putString("uid", uid)
+                                .putString("userId", userId)
                                 .putString("email", email)
                                 .putString("password", password)
                                 .putString("phone", phone)
                                 .putString("role", role)
                                 .apply();
 
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Login successful",
-                                Toast.LENGTH_SHORT
-                        ).show();
-
-                        Intent intent = new Intent(
-                                MainActivity.this,
-                                DashboardActivity.class
-                        );
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-                                Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
+                        startActivity(new Intent(this, DashboardActivity.class));
                         finish();
-
                     } else {
                         Toast.makeText(
-                                MainActivity.this,
-                                "Login failed: " + task.getException().getMessage(),
+                                this,
+                                "Login failed",
                                 Toast.LENGTH_LONG
                         ).show();
                     }
                 });
+    }
+
+    private boolean isUserPertinent(String role) {
+        return role != null && role.equalsIgnoreCase("driver");
     }
 }

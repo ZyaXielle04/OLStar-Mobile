@@ -7,14 +7,16 @@
     android:padding="14dp"
     android:orientation="vertical">
 
+    <!-- Main Card -->
     <LinearLayout
+        android:id="@+id/mainCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@drawable/bg_card"
         android:elevation="5dp">
 
-        <!-- Horizontal layout for Trip ID and Flight No. -->
+        <!-- Trip ID and Flight No -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -40,12 +42,41 @@
                 android:layout_height="wrap_content"/>
         </LinearLayout>
 
+        <!-- Client Name and Contact -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="20dp">
+
+            <TextView
+                android:id="@+id/tvClientName"
+                android:text="Client Name: "
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="#172747"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"/>
+
+            <TextView
+                android:id="@+id/tvContactNumber"
+                android:text="Contact No.: "
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="#172747"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"/>
+        </LinearLayout>
+
+        <!-- Pickup & Dropoff -->
         <TextView
             android:id="@+id/tvPickup"
             android:text="Pickup"
             android:textSize="14sp"
             android:textColor="#555555"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="20dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
 
@@ -53,16 +84,18 @@
             android:id="@+id/tvDropoff"
             android:text="Drop-off"
             android:textSize="14sp"
+            android:layout_marginTop="20dp"
             android:textColor="#555555"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
 
+        <!-- Date & Time -->
         <TextView
             android:id="@+id/tvDate"
             android:text="Date"
             android:textSize="14sp"
             android:textColor="#555555"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="20dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
 
@@ -74,91 +107,216 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
 
+        <!-- Status -->
         <TextView
             android:id="@+id/tvStatus"
             android:text="Status"
             android:textSize="14sp"
-            android:layout_marginTop="6dp"
-            android:layout_width="wrap_content"
+            android:layout_marginTop="20dp"
             android:textColor="@android:color/black"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
 
     </LinearLayout>
 
+    <!-- HIDDEN LAYOUT: Wrap all elements that should be toggled -->
     <LinearLayout
+        android:id="@+id/hiddenLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="@drawable/bg_card"
-        android:elevation="5dp"
-        android:layout_marginTop="20dp">
+        android:visibility="gone"
+        android:layout_marginTop="10dp">
 
-        <TextView
-            android:id="@+id/ETA"
-            android:layout_width="wrap_content"
+        <!-- ETA Section -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Estimated Time of Arrival: "
-            android:textColor="@android:color/black"
-            android:textSize="15sp"/>
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:elevation="5dp"
+            android:visibility="gone">
 
-        <TextView
-            android:id="@+id/ETAUpdate"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Last updated: "
-            android:textColor="@android:color/black"
-            android:textSize="15sp"/>
+            <TextView
+                android:id="@+id/ETA"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Estimated Time of Arrival: "
+                android:textColor="@android:color/black"
+                android:textSize="15sp"/>
 
-        <TextView
-            android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/ETAUpdate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Last updated: "
+                android:textColor="@android:color/black"
+                android:textSize="15sp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="The estimated time of arrival might be off by 5 to 10 minutes. This information is calculated manually based on Aviation Edge Fetch API. For additional and more accurate information, visit FlightAware by clicking the button below."
+                android:textColor="@android:color/black"
+                android:textAlignment="center" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:text="The estimated time of arrival might be off by 5 to 10 minutes. This information is calculated manually based on Aviation Edge Fetch API. For additional and more accurate information, visit FlightAware by clicking the button below."
+            android:orientation="horizontal"
+            android:weightSum="2"
+            android:layout_marginTop="10dp">
+            <!-- FlightAware Button -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnFlightAware"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_weight="1"
+                android:layout_marginEnd="10dp"
+                android:background="@drawable/bg_card"
+                android:textColor="@android:color/black"
+                android:text="Flight Number"/>
+
+            <!-- Back to Active Trip -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/backToActiveTrip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Google Maps"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_card"
+                android:textColor="@android:color/black"
+                android:textSize="18sp"/>
+
+        </LinearLayout>
+
+        <!-- Slide to Confirm -->
+        <SeekBar
+            android:id="@+id/slideConfirm"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="8dp"
+            android:max="100"
+            android:progress="3"
+            android:thumb="@drawable/slider_thumb"
+            android:progressDrawable="@drawable/slider_track"
+            android:splitTrack="false"/>
+
+        <!-- Copy Client & Contact -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="2"
+            android:layout_marginTop="10dp">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/copyClientName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Copy Client Name"
+                android:background="@drawable/bg_card"
+                android:textColor="@android:color/black"
+                android:textSize="18sp"
+                android:layout_marginEnd="10dp"/>
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/copyContactNumber"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Copy Contact Number"
+                android:background="@drawable/bg_card"
+                android:textColor="@android:color/black"
+                android:textSize="18sp"
+                android:layout_marginStart="10dp"/>
+        </LinearLayout>
+
+        <!-- Horizontal Scroll Buttons -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/sendItenary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Send Itinerary"
+                    android:background="@drawable/bg_card"
+                    android:textColor="@android:color/black"
+                    android:textSize="18sp"
+                    android:layout_marginEnd="10dp"/>
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/arrivedPickup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Driver Arrived at Pickup Point"
+                    android:background="@drawable/bg_card"
+                    android:textColor="@android:color/black"
+                    android:textSize="18sp"
+                    android:layout_marginEnd="10dp"/>
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/driverUpdate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Request Client Update"
+                    android:background="@drawable/bg_card"
+                    android:textColor="@android:color/black"
+                    android:textSize="18sp"
+                    android:layout_marginEnd="10dp"/>
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/reviewAndRatings"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Review and Ratings"
+                    android:background="@drawable/bg_card"
+                    android:textColor="@android:color/black"
+                    android:textSize="18sp"
+                    android:layout_marginEnd="10dp"/>
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/overtimeMessage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Overtime"
+                    android:background="@drawable/bg_card"
+                    android:textColor="@android:color/black"
+                    android:textSize="18sp"/>
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Set Alarm -->
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnSetAlarm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Set Alarm for Trip"
+            android:background="@drawable/bg_card"
             android:textColor="@android:color/black"
-            android:textAlignment="center" />
+            android:textSize="18sp"/>
+
+        <LinearLayout
+            android:id="@+id/statusContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="8dp"/>
 
     </LinearLayout>
-
-    <Button
-        android:id="@+id/btnFlightAware"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginTop="20dp"
-        android:backgroundTint="@color/grey"
-        android:textColor="@color/font_white"
-        android:text="Visit FlightAware to see Flight Details"/>
-
-    <SeekBar
-        android:id="@+id/slideConfirm"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_marginTop="8dp"
-        android:max="100"
-        android:progress="3"
-        android:thumb="@drawable/slider_thumb"
-        android:progressDrawable="@drawable/slider_track"
-        android:splitTrack="false"
-        />
-
-    <Button
-        android:id="@+id/backToActiveTrip"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="Get Back to My Current Trip"
-        android:backgroundTint="@color/grey"
-        android:textColor="@android:color/white"
-        android:textSize="18sp"/>
-
-    <!-- NEW: Set Alarm Button -->
-    <Button
-        android:id="@+id/btnSetAlarm"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="Set Alarm for Trip"
-        android:backgroundTint="@color/grey"
-        android:textColor="@android:color/white"
-        android:textSize="18sp"/>
 </LinearLayout>

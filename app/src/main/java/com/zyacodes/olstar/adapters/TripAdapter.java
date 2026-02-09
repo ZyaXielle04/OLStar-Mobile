@@ -1,41 +1,55 @@
 package com.zyacodes.olstar.adapters;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
+import android.net.Uri;
 import android.provider.AlarmClock;
+import android.view.Gravity;
+import android.widget.Button;
+import android.widget.SeekBar;
+import android.widget.TextView;
+import android.widget.LinearLayout;
+import android.widget.Toast;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.SeekBar;
-import android.widget.TextView;
-import android.widget.Button;
-import android.widget.Toast;
+import java.util.Map;
+import java.util.HashMap;
+
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.widget.AppCompatButton;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.database.DatabaseReference;
 import com.zyacodes.olstar.R;
 import com.zyacodes.olstar.drivers.TripActiveActivity;
 import com.zyacodes.olstar.models.TripModel;
+import android.provider.AlarmClock;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+
+import java.net.URLEncoder;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
 
     private final List<TripModel> trips;
+    private final Context context;
 
-    public TripAdapter(List<TripModel> trips) {
+    // Callback for photo taking
+    private final OnPhotoClickListener photoClickListener;
+
+    public interface OnPhotoClickListener {
+        void onTakePhoto(TripModel trip, String photoType);
+    }
+
+    public TripAdapter(Context context, List<TripModel> trips, OnPhotoClickListener listener) {
+        this.context = context;
         this.trips = trips;
+        this.photoClickListener = listener;
     }
 
     @NonNull
@@ -49,210 +63,326 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull ViewHolder h, int position) {
         TripModel trip = trips.get(position);
-        Context context = h.itemView.getContext();
+        String status = trip.getStatus();
 
-        // ---------------- SET TEXT ----------------
         h.tvTripId.setText("Trip ID: " + trip.getTripId());
-        h.tvFlightNo.setText("Flight No.: " + trip.getFlightNumber());
+        h.tvFlightNo.setText(trip.getFlightNumber());
+        h.tvClientName.setText("Client Name: " + trip.getClientName());
+        h.tvContactNumber.setText("Contact No.: " + trip.getContactNumber());
         h.tvPickup.setText("Pickup: " + trip.getPickup());
         h.tvDropoff.setText("Drop-off: " + trip.getDropOff());
         h.tvDate.setText("Date: " + trip.getDate());
         h.tvTime.setText("Time: " + trip.getTime());
-        h.tvStatus.setText("Status: " + trip.getStatus());
+        h.tvStatus.setText("Status: " + status);
+        h.statusProgressContainer.removeAllViews();
 
-        // Assuming you have a button in your item_trip.xml called btnFlightAware
-        Button btnFlightAware = h.itemView.findViewById(R.id.btnFlightAware);
 
-        btnFlightAware.setOnClickListener(v -> {
-            String flightNumber = trip.getFlightNumber();
-            if (flightNumber != null && !flightNumber.isEmpty()) {
-                flightNumber = flightNumber.replace(" ", ""); // remove spaces
-                String url = "https://flightaware.com/live/flight/" + flightNumber;
-                Intent intent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url));
-
-                try {
-                    v.getContext().startActivity(intent);
-                } catch (Exception e) {
-                    Toast.makeText(v.getContext(), "Cannot open FlightAware. No browser found.", Toast.LENGTH_SHORT).show();
-                }
-            } else {
-                Toast.makeText(v.getContext(), "Flight number not available", Toast.LENGTH_SHORT).show();
+        String[] statusKeys = {"Pending", "Confirmed", "Arrived", "On Route", "Completed"};
+        boolean cancelled = "Cancelled".equalsIgnoreCase(trip.getStatus());
+        int currentIndex = -1;
+        for (int i = 0; i < statusKeys.length; i++) {
+            if (statusKeys[i].equalsIgnoreCase(trip.getStatus())) {
+                currentIndex = i;
+                break;
             }
+        }
+
+        // Create a horizontal container for the steps
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.HORIZONTAL);
+        container.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
+
+// Map for labels
+        Map<String, String> statusMap = new HashMap<>();
+        statusMap.put("Pending", "The Driver is preparing to dispatch.");
+        statusMap.put("Confirmed", "Driver has departed");
+        statusMap.put("Arrived", "Driver has arrived");
+        statusMap.put("On Route", "Service Start");
+        statusMap.put("Completed", "Service finished");
+        statusMap.put("Cancelled", "Booking Cancelled");
+
+        for (int i = 0; i < statusKeys.length; i++) {
+            LinearLayout step = new LinearLayout(context);
+            step.setOrientation(LinearLayout.VERTICAL);
+            step.setLayoutParams(new LinearLayout.LayoutParams(0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            step.setGravity(Gravity.CENTER_HORIZONTAL);
+
+            // Circle
+            TextView circle = new TextView(context);
+            circle.setText(String.valueOf(i + 1));
+            circle.setGravity(Gravity.CENTER);
+            circle.setWidth(60);
+            circle.setHeight(60);
+            circle.setBackgroundResource(R.drawable.circle_background); // make a drawable for default
+            if (cancelled) {
+                circle.setBackgroundColor(Color.RED);
+            } else if (i <= currentIndex) {
+                circle.setBackgroundColor(Color.BLUE);
+            }
+
+            // Label
+            TextView label = new TextView(context);
+            label.setGravity(Gravity.CENTER);
+            label.setTextSize(10);
+            if (cancelled) {
+                label.setText(i == 2 ? "Booking Cancelled" : "");
+            } else {
+                label.setText(statusMap.get(statusKeys[i]));
+            }
+
+            step.addView(circle);
+            step.addView(label);
+
+            // Line (except last)
+            if (i < statusKeys.length - 1) {
+                View line = new View(context);
+                LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(
+                        0, 5, 1f); // horizontal line
+                line.setLayoutParams(lineParams);
+                if (cancelled) {
+                    line.setBackgroundColor(Color.RED);
+                } else if (i < currentIndex) {
+                    line.setBackgroundColor(Color.BLUE);
+                } else {
+                    line.setBackgroundColor(Color.LTGRAY);
+                }
+                step.addView(line);
+            }
+
+            container.addView(step);
+        }
+
+// Add to a container in item_trip.xml
+        h.statusProgressContainer.addView(container);
+
+        // Toggle hidden layout
+        h.hiddenLayout.setVisibility(trip.isExpanded() ? View.VISIBLE : View.GONE);
+        h.mainCard.setOnClickListener(v -> {
+            trip.setExpanded(!trip.isExpanded());
+            h.hiddenLayout.setVisibility(trip.isExpanded() ? View.VISIBLE : View.GONE);
         });
 
-
-        // ---------------- REAL-TIME ETA ----------------
-        DatabaseReference etaRef = FirebaseDatabase.getInstance(
-                        "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/"
-                ).getReference("schedules")
-                .child(trip.getTripId())
-                .child("ETA");
-
-        // Remove old listener if exists
-        if (h.etaListener != null) {
-            etaRef.removeEventListener(h.etaListener);
-        }
-
-        ValueEventListener listener = new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                int pos = h.getAdapterPosition();
-                if (pos == RecyclerView.NO_POSITION) return; // ViewHolder no longer valid
-
-                if (snapshot.exists()) {
-                    // SAFELY get "est"
-                    Object estObj = snapshot.child("est").getValue();
-                    String est;
-                    if (estObj == null) {
-                        est = "N/A";
-                    } else if (estObj instanceof String) {
-                        est = (String) estObj;
-                    } else {
-                        est = estObj.toString();
-                    }
-
-                    // SAFELY get "timestamp"
-                    Object timestampObj = snapshot.child("timestamp").getValue();
-                    String timestamp;
-                    if (timestampObj == null) {
-                        timestamp = "N/A";
-                    } else if (timestampObj instanceof String) {
-                        timestamp = (String) timestampObj;
-                    } else { // probably Long/Integer
-                        try {
-                            long tsLong = Long.parseLong(timestampObj.toString());
-                            timestamp = new SimpleDateFormat("h:mma", Locale.getDefault())
-                                    .format(new Date(tsLong * 1000)); // assuming timestamp in seconds
-                        } catch (NumberFormatException e) {
-                            timestamp = timestampObj.toString();
-                        }
-                    }
-
-                    h.ETA.setText("Estimated Time of Arrival: " + est);
-                    h.ETAUpdate.setText("Last updated: " + timestamp);
-                } else {
-                    h.ETA.setText("Estimated Time of Arrival: N/A");
-                    h.ETAUpdate.setText("Last updated: N/A");
-                }
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
-        };
-
-        h.etaListener = listener;
-        etaRef.addValueEventListener(listener);
-
-        // ---------------- CONFIRM SLIDE ----------------
-        h.slideConfirm.setVisibility(View.GONE);
-        h.slideConfirm.setEnabled(false);
-        h.slideConfirm.setProgress(0);
-        h.slideConfirm.setOnSeekBarChangeListener(null);
-
-        if ("Pending".equalsIgnoreCase(trip.getStatus())) {
+        // Slide to confirm logic
+        if ("Completed".equalsIgnoreCase(status)) {
+            h.slideConfirm.setVisibility(View.GONE);
+        } else {
             h.slideConfirm.setVisibility(View.VISIBLE);
+            h.slideConfirm.setProgress(0);
             h.slideConfirm.setEnabled(true);
+
             h.slideConfirm.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                @Override
-                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                    if (!fromUser) return;
-                    if (progress >= 95) {
-                        seekBar.setEnabled(false);
-                        int pos = h.getAdapterPosition();
-                        if (pos == RecyclerView.NO_POSITION) return;
-                        TripModel confirmedTrip = trips.get(pos);
-
-                        FirebaseDatabase.getInstance(
-                                        "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/"
-                                )
-                                .getReference("schedules")
-                                .child(confirmedTrip.getTripId())
-                                .child("status")
-                                .setValue("Confirmed")
-                                .addOnSuccessListener(aVoid -> {
-                                    Intent intent = new Intent(context, TripActiveActivity.class);
-                                    intent.putExtra("tripId", confirmedTrip.getTripId());
-                                    intent.putExtra("pickup", confirmedTrip.getPickup());
-                                    intent.putExtra("dropOff", confirmedTrip.getDropOff());
-                                    intent.putExtra("status", "Confirmed");
-                                    context.startActivity(intent);
-                                });
-                    }
-                }
-
+                @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {}
                 @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-                @Override public void onStopTrackingTouch(SeekBar seekBar) {
-                    if (seekBar.isEnabled()) seekBar.setProgress(0);
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+                    if (seekBar.getProgress() >= 95) {
+                        seekBar.setProgress(0);
+
+                        String photoType;
+                        switch (trip.getStatus()) {
+                            case "Confirmed": photoType = "confirmedPhotoUrl"; break;
+                            case "Arrived": photoType = "arrivedPhotoUrl"; break;
+                            case "On Route": photoType = "OnRoutePhotoUrl"; break;
+                            default: photoType = "pendingPhotoUrl"; break;
+                        }
+
+                        photoClickListener.onTakePhoto(trip, photoType);
+                    }
                 }
             });
         }
 
-        // ---------------- BACK TO ACTIVE TRIP ----------------
-        h.backToActiveTrip.setVisibility(View.GONE);
-        h.backToActiveTrip.setOnClickListener(null);
+        // ---------------- Button Functionality ----------------
 
-        if ("Confirmed".equalsIgnoreCase(trip.getStatus()) ||
-                "Arrived".equalsIgnoreCase(trip.getStatus()) ||
-                "On Route".equalsIgnoreCase(trip.getStatus()) ||
-                "Ongoing".equalsIgnoreCase(trip.getStatus())) {
+        // FlightAware button
+        Button btnFlightAware = h.itemView.findViewById(R.id.btnFlightAware); if (btnFlightAware != null) {
+            btnFlightAware.setOnClickListener(v -> {
+                String flightNumber = trip.getFlightNumber(); if (flightNumber != null && !flightNumber.isEmpty()) {
+                    flightNumber = flightNumber.replace(" ", "");
+                    String url = "https://flightaware.com/live/flight/" + flightNumber;
+                    try {
+                         Intent browserIntent = new Intent(Intent.ACTION_VIEW);
+                         browserIntent.setData(android.net.Uri.parse(url));
+                         browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                         v.getContext().startActivity(browserIntent);
+                         } catch (Exception e) {
+                         Toast.makeText(v.getContext(), "Cannot open FlightAware. No browser found.", Toast.LENGTH_SHORT).show();
+                         }
+                         } else {
+                         Toast.makeText(v.getContext(), "Flight number not available", Toast.LENGTH_SHORT).show();
+                         } }); }
 
-            h.backToActiveTrip.setVisibility(View.VISIBLE);
-            h.backToActiveTrip.setOnClickListener(v -> {
-                int pos = h.getAdapterPosition();
-                if (pos == RecyclerView.NO_POSITION) return;
-                TripModel activeTrip = trips.get(pos);
+        // Copy Client Name
+        h.copyClientName.setOnClickListener(v -> {
+            ClipboardManager clipboard = (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("Client Name", trip.getClientName());
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(v.getContext(), "Client Name copied", Toast.LENGTH_SHORT).show();
+        });
 
-                Intent intent = new Intent(context, TripActiveActivity.class);
-                intent.putExtra("tripId", activeTrip.getTripId());
-                intent.putExtra("pickup", activeTrip.getPickup());
-                intent.putExtra("dropOff", activeTrip.getDropOff());
-                intent.putExtra("status", activeTrip.getStatus());
-                context.startActivity(intent);
-            });
-        }
+        // Copy Contact Number
+        h.copyContactNumber.setOnClickListener(v -> {
+            ClipboardManager clipboard = (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("Contact Number", trip.getContactNumber());
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(v.getContext(), "Contact Number copied", Toast.LENGTH_SHORT).show();
+        });
 
-        // ---------------- SET ALARM ----------------
-        h.btnSetAlarm.setVisibility(View.VISIBLE);
+        // ---------------- Updated Button Templates ----------------
+
+// Send Itinerary
+        h.sendItenary.setOnClickListener(v -> {
+            String message = "Hi Good day Sir/Madam " + trip.getClientName() +
+                    ", I am " + trip.getDriverName() + " of Klook X OL-Star Transport. " +
+                    "I am the assigned driver for your airport transfer tomorrow. Here is complete information and details.\n\n" +
+                    "🚗 DRIVER INFORMATION\n" +
+                    "Name: " + trip.getDriverName() + "\n" +
+                    "Mobile: " + trip.getDriverPhone() + "\n" +
+                    "Vehicle: " + trip.getTransportUnit() + "\n" +
+                    "Plate No: " + trip.getPlateNumber() + "\n" +
+                    "Color: " + trip.getColor() + "\n\n" +
+                    "Here is the itinerary of your Airport Transfer:\n\n" +
+                    "✈️ FLIGHT DETAILS\n" +
+                    "📅 Date: " + trip.getDate() + "\n" +
+                    "⏰ Pickup Time: " + trip.getTime() + "\n" +
+                    "📍 PICKUP AREA\n" + trip.getPickup() + "\n" +
+                    "📍 DROP-OFF LOCATION\n" + trip.getDropOff() + "\n\n" +
+                    "ℹ️ ADDITIONAL INFO\n" +
+                    "You have a free one (1) hour waiting period. After that, PHP 150 per succeeding hour.";
+
+            ClipboardManager clipboard = (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("Itinerary", message);
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(v.getContext(), "Itinerary copied to clipboard", Toast.LENGTH_SHORT).show();
+        });
+
+// Driver Arrived at Pickup
+        h.arrivedPickup.setOnClickListener(v -> {
+            String message = "Hi Good day Sir/Madam " + trip.getClientName() +
+                    ", I am " + trip.getDriverName() + " I am here at " + trip.getPickup() +
+                    " waiting for your arrival.\n\n" +
+                    "🚗 DRIVER INFORMATION\n" +
+                    "Name: " + trip.getDriverName() + "\n" +
+                    "Mobile: " + trip.getDriverPhone() + "\n" +
+                    "Vehicle: " + trip.getTransportUnit() + "\n" +
+                    "Plate No: " + trip.getPlateNumber() + "\n" +
+                    "Color: " + trip.getColor() + "\n\n" +
+                    "Please take note that we cannot stay here longer than 5 minutes due to strict security. " +
+                    "After 5 minutes, I have to exit and wait for you in the parking area. Please message me once you are in " + trip.getPickup() + ".\n\n" +
+                    "Take note that You have a free one (1) hour waiting period. After that, PHP 150 per succeeding hour.";
+
+            ClipboardManager clipboard = (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("Arrived", message);
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(v.getContext(), "Arrived message copied to clipboard", Toast.LENGTH_SHORT).show();
+        });
+
+// Request Client Update
+        h.driverUpdate.setOnClickListener(v -> {
+            String message = "Good Day, I am " + trip.getDriverName() + ". Can I ask for an update? " +
+                    "Once you arrive at " + trip.getPickup() + ", please message me because I am staying in the parking area. " +
+                    "We cannot wait in Arrival Area due to strict security.";
+
+            ClipboardManager clipboard = (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("DriverUpdate", message);
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(v.getContext(), "Driver Update copied to clipboard", Toast.LENGTH_SHORT).show();
+        });
+
+// Review and Ratings
+        h.reviewAndRatings.setOnClickListener(v -> {
+            String message = "Good Day Ma'am/Sir " + trip.getClientName() +
+                    ", I am " + trip.getDriverName() + ", your assigned driver. " +
+                    "I hope you are satisfied with my driving performance. " +
+                    "May I request a little time for you to give us a Review and Ratings. " +
+                    "Your suggestion will help us improve my performance. Thank you and have a great day.";
+
+            ClipboardManager clipboard = (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("ReviewAndRatings", message);
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(v.getContext(), "Review request copied to clipboard", Toast.LENGTH_SHORT).show();
+        });
+
+// Overtime Message
+        h.overtimeMessage.setOnClickListener(v -> {
+            String message = "Good Day, we regret to inform that you have consumed the 1 hour free waiting time. " +
+                    "You consumed additional XX hour(s) and you have to pay PHP YYY.";
+
+            ClipboardManager clipboard = (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("Overtime", message);
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(v.getContext(), "Overtime message copied to clipboard", Toast.LENGTH_SHORT).show();
+        });
+
+        // Back to Active Trip
+        h.backToActiveTrip.setOnClickListener(v -> {
+            Intent intent = new Intent(v.getContext(), TripActiveActivity.class);
+            intent.putExtra("tripId", trip.getTripId());
+            intent.putExtra("pickup", trip.getPickup());
+            intent.putExtra("dropOff", trip.getDropOff());
+            v.getContext().startActivity(intent);
+        });
+
+        // Set Alarm for Trip
         h.btnSetAlarm.setOnClickListener(v -> {
-            int pos = h.getAdapterPosition();
-            if (pos == RecyclerView.NO_POSITION) return;
-            TripModel alarmTrip = trips.get(pos);
-
             try {
-                SimpleDateFormat sdf12 = new SimpleDateFormat("h:mma", Locale.getDefault());
-                Date date = sdf12.parse(alarmTrip.getTime());
-                if (date != null) {
-                    Calendar cal = Calendar.getInstance();
-                    cal.setTime(date);
+                String time = trip.getTime().trim(); // e.g., "6:00PM"
+                String[] timeParts = time.split(":");
 
-                    String type = alarmTrip.getTripType() != null ? alarmTrip.getTripType() : "";
-                    if ("Departure".equalsIgnoreCase(type) || "Special".equalsIgnoreCase(type)) {
-                        cal.add(Calendar.HOUR_OF_DAY, -1);
-                    } else if ("Arrival".equalsIgnoreCase(type)) {
-                        cal.add(Calendar.MINUTE, -20);
-                    }
+                int hour = Integer.parseInt(timeParts[0]);
+                int minute = Integer.parseInt(timeParts[1].replaceAll("[^0-9]", ""));
 
-                    Intent intent = new Intent(AlarmClock.ACTION_SET_ALARM);
-                    intent.putExtra(AlarmClock.EXTRA_HOUR, cal.get(Calendar.HOUR_OF_DAY));
-                    intent.putExtra(AlarmClock.EXTRA_MINUTES, cal.get(Calendar.MINUTE));
-                    intent.putExtra(AlarmClock.EXTRA_MESSAGE, "Trip #1 Pickup at " + alarmTrip.getPickup());
-                    intent.putExtra(AlarmClock.EXTRA_SKIP_UI, false);
+                // Convert to 24-hour
+                if (time.toLowerCase().contains("pm") && hour < 12) hour += 12;
+                else if (time.toLowerCase().contains("am") && hour == 12) hour = 0;
 
-                    if ("Departure".equalsIgnoreCase(type) || "Special".equalsIgnoreCase(type)) {
-                        intent.putExtra(AlarmClock.EXTRA_ALARM_SNOOZE_DURATION, 10);
-                    } else if ("Arrival".equalsIgnoreCase(type)) {
-                        intent.putExtra(AlarmClock.EXTRA_ALARM_SNOOZE_DURATION, 5);
-                    }
+                // Use Calendar to adjust time
+                Calendar alarmTime = Calendar.getInstance();
+                alarmTime.set(Calendar.HOUR_OF_DAY, hour);
+                alarmTime.set(Calendar.MINUTE, minute);
+                alarmTime.set(Calendar.SECOND, 0);
 
-                    if (intent.resolveActivity(context.getPackageManager()) != null) {
-                        context.startActivity(intent);
-                    } else {
-                        Toast.makeText(context, "No alarm app found", Toast.LENGTH_SHORT).show();
-                    }
+                // Adjust based on trip status
+                switch (trip.getStatus().toLowerCase()) {
+                    case "departure":
+                        alarmTime.add(Calendar.HOUR_OF_DAY, -1); // 1 hour earlier
+                        alarmTime.add(Calendar.MINUTE, -50);     // plus 50 min earlier
+                        alarmTime.add(Calendar.MINUTE, -40);     // plus 40 min earlier
+                        break;
+                    case "arrival":
+                        alarmTime.add(Calendar.MINUTE, -20);
+                        alarmTime.add(Calendar.MINUTE, -15);
+                        alarmTime.add(Calendar.MINUTE, -10);
+                        alarmTime.add(Calendar.MINUTE, -5);
+                        break;
+                    case "special trip":
+                        alarmTime.add(Calendar.HOUR_OF_DAY, -1);
+                        alarmTime.add(Calendar.MINUTE, -50);
+                        alarmTime.add(Calendar.MINUTE, -40);
+                        break;
                 }
-            } catch (ParseException | SecurityException e) {
+
+                // Create alarm intent
+                Intent intent = new Intent(AlarmClock.ACTION_SET_ALARM);
+                intent.putExtra(AlarmClock.EXTRA_HOUR, alarmTime.get(Calendar.HOUR_OF_DAY));
+                intent.putExtra(AlarmClock.EXTRA_MINUTES, alarmTime.get(Calendar.MINUTE));
+                intent.putExtra(AlarmClock.EXTRA_MESSAGE, "Trip Reminder: " + trip.getTripId());
+                intent.putExtra(AlarmClock.EXTRA_SKIP_UI, false);
+
+                if (intent.resolveActivity(v.getContext().getPackageManager()) != null) {
+                    v.getContext().startActivity(intent);
+                } else {
+                    Toast.makeText(v.getContext(), "No alarm app found", Toast.LENGTH_SHORT).show();
+                }
+
+            } catch (Exception e) {
                 e.printStackTrace();
-                Toast.makeText(context, "Cannot create alarm: invalid time or permission denied.", Toast.LENGTH_LONG).show();
+                Toast.makeText(v.getContext(), "Failed to set alarm", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -264,26 +394,41 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
 
     // ---------------- VIEW HOLDER ----------------
     static class ViewHolder extends RecyclerView.ViewHolder {
-
-        TextView tvTripId, tvFlightNo, tvPickup, tvDropoff, tvDate, tvTime, tvStatus;
-        TextView ETA, ETAUpdate;
+        public LinearLayout statusProgressContainer; // <- corrected
+        LinearLayout mainCard, hiddenLayout;
+        TextView tvTripId, tvFlightNo, tvClientName, tvDate, tvTime, tvContactNumber, tvPickup, tvDropoff, tvStatus;
         SeekBar slideConfirm;
-        Button backToActiveTrip, btnSetAlarm;
-
-        ValueEventListener etaListener; // keep reference to remove listener if reused
+        AppCompatButton btnFlightAware, copyClientName, copyContactNumber, sendItenary,
+                arrivedPickup, driverUpdate, reviewAndRatings, overtimeMessage,
+                backToActiveTrip, btnSetAlarm;
 
         ViewHolder(@NonNull View itemView) {
             super(itemView);
+            mainCard = itemView.findViewById(R.id.mainCard);
+            hiddenLayout = itemView.findViewById(R.id.hiddenLayout);
             tvTripId = itemView.findViewById(R.id.tvTripId);
             tvFlightNo = itemView.findViewById(R.id.tvFlightNo);
+            tvClientName = itemView.findViewById(R.id.tvClientName);
+            tvContactNumber = itemView.findViewById(R.id.tvContactNumber);
             tvPickup = itemView.findViewById(R.id.tvPickup);
             tvDropoff = itemView.findViewById(R.id.tvDropoff);
+            tvStatus = itemView.findViewById(R.id.tvStatus);
             tvDate = itemView.findViewById(R.id.tvDate);
             tvTime = itemView.findViewById(R.id.tvTime);
-            tvStatus = itemView.findViewById(R.id.tvStatus);
-            ETA = itemView.findViewById(R.id.ETA);
-            ETAUpdate = itemView.findViewById(R.id.ETAUpdate);
             slideConfirm = itemView.findViewById(R.id.slideConfirm);
+
+            // Corrected line
+            statusProgressContainer = itemView.findViewById(R.id.statusContainer);
+
+            // Buttons
+            btnFlightAware = itemView.findViewById(R.id.btnFlightAware);
+            copyClientName = itemView.findViewById(R.id.copyClientName);
+            copyContactNumber = itemView.findViewById(R.id.copyContactNumber);
+            sendItenary = itemView.findViewById(R.id.sendItenary);
+            arrivedPickup = itemView.findViewById(R.id.arrivedPickup);
+            driverUpdate = itemView.findViewById(R.id.driverUpdate);
+            reviewAndRatings = itemView.findViewById(R.id.reviewAndRatings);
+            overtimeMessage = itemView.findViewById(R.id.overtimeMessage);
             backToActiveTrip = itemView.findViewById(R.id.backToActiveTrip);
             btnSetAlarm = itemView.findViewById(R.id.btnSetAlarm);
         }

@@ -7,6 +7,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#FFFFFF"
+    android:fitsSystemWindows="true"
     tools:context=".drivers.TripsActivity">
 
     <!-- Content -->
@@ -20,7 +21,7 @@
         <!-- Header -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="150dp"
+            android:layout_height="75dp"
             android:layout_marginBottom="12dp">
 
             <ImageView
@@ -29,14 +30,32 @@
                 android:src="@drawable/background_event"
                 android:scaleType="fitXY"/>
 
-            <TextView
-                android:layout_gravity="center"
-                android:text="Today's Trips"
-                android:textSize="26sp"
-                android:textStyle="bold"
-                android:textColor="#172747"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_width="wrap_content"/>
+                android:orientation="vertical"
+                android:layout_gravity="center">
+
+                <TextView
+                    android:layout_gravity="center"
+                    android:text="Today's Trips"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:textColor="#172747"
+                    android:layout_height="wrap_content"
+                    android:layout_width="wrap_content"/>
+
+                <TextView
+                    android:id="@+id/tvDate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="DATE"
+                    android:layout_gravity="center_horizontal"
+                    android:textAlignment="center"
+                    android:textColor="@android:color/black"/>
+
+            </LinearLayout>
+
         </FrameLayout>
 
         <!-- Empty State -->

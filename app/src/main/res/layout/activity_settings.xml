@@ -7,6 +7,7 @@
     android:layout_height="match_parent"
     tools:context=".drivers.SettingsActivity"
     android:orientation="vertical"
+    android:fitsSystemWindows="true"
     android:background="#FFFFFF">
 
     <!-- Scrollable Content -->
@@ -48,8 +49,31 @@
                 android:layout_height="wrap_content"
                 android:text="This section is still under development."
                 android:textSize="20sp"
-                android:layout_gravity="center"/>
+                android:layout_gravity="center"
+                android:layout_marginBottom="20dp"/>
 
+            <!-- Logout Button -->
+            <Button
+                android:id="@+id/btnLogout"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="Logout"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#E11D48"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:textAllCaps="false"
+                android:fontFamily="sans-serif-medium"
+                android:drawablePadding="8dp"
+                android:gravity="center"
+                android:visibility="visible"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="App Version\n1.1a"
+                android:textSize="20dp"
+                android:textAlignment="center"/>
         </LinearLayout>
     </ScrollView>
 

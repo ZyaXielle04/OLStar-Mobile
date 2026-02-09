@@ -13,9 +13,12 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.*;
 import com.zyacodes.olstar.GasPaymentDialog;
+import com.zyacodes.olstar.MainActivity;
 import com.zyacodes.olstar.R;
+import com.zyacodes.olstar.controllers.GlobalFabController;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -23,18 +26,19 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
-import com.zyacodes.olstar.controllers.GlobalFabController;
-
 public class DashboardActivity extends AppCompatActivity {
 
+    private TextView tvName;
     private TextView tvTotalBookings, tvTodayEarnings, tvPendingBookings;
     private TextView tvWeeklyEarnings, tvCompletedTrips;
 
     private LinearLayout navDashboard, navTrips, navRequests, navSettings, navHistory;
 
-    private DatabaseReference schedulesRef;
+    private DatabaseReference schedulesRef, usersRef;
+    private FirebaseAuth auth;
 
     private String driverPhone;
+    private String userId;
 
     private final ZoneId PH_ZONE = ZoneId.of("Asia/Manila");
 
@@ -43,12 +47,8 @@ public class DashboardActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dashboard);
 
-        GlobalFabController.attach(this, v -> {
-            GasPaymentDialog.show(this);
-        });
+        GlobalFabController.attach(this, v -> GasPaymentDialog.show(this));
 
-
-        // Handle system bar insets
         ViewCompat.setOnApplyWindowInsetsListener(
                 findViewById(R.id.main),
                 (v, insets) -> {
@@ -57,10 +57,19 @@ public class DashboardActivity extends AppCompatActivity {
                     return insets;
                 });
 
+        auth = FirebaseAuth.getInstance();
+
+        FirebaseDatabase db = FirebaseDatabase.getInstance(
+                "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        );
+
+        usersRef = db.getReference("users");
+        schedulesRef = db.getReference("schedules");
+
         initViews();
         setupBottomNavigation();
         loadUserFromPrefs();
-        setupFirebase();
+        loadDriverName();
         loadTodaysData();
     }
 
@@ -71,6 +80,8 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initViews() {
+        tvName = findViewById(R.id.tvName);
+
         tvTotalBookings = findViewById(R.id.tvTotalBookings);
         tvTodayEarnings = findViewById(R.id.tvTodayEarnings);
         tvPendingBookings = findViewById(R.id.tvPendingBookings);
@@ -86,19 +97,44 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void loadUserFromPrefs() {
+        auth = FirebaseAuth.getInstance();
+        String authUid = (auth.getCurrentUser() != null) ? auth.getCurrentUser().getUid() : null;
+
         SharedPreferences prefs = getSharedPreferences("login", MODE_PRIVATE);
         driverPhone = prefs.getString("phone", null);
+        String prefUid = prefs.getString("uid", null);
 
-        if (driverPhone == null) {
+        // Use auth UID first, fallback to prefs UID
+        userId = (authUid != null) ? authUid : prefUid;
+
+        if (userId == null || driverPhone == null) {
+            // Both failed → redirect to login
             Toast.makeText(this, "Session expired. Please login again.", Toast.LENGTH_LONG).show();
+            startActivity(new Intent(this, MainActivity.class));
             finish();
         }
     }
 
-    private void setupFirebase() {
-        FirebaseDatabase db = FirebaseDatabase.getInstance(
-                "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/");
-        schedulesRef = db.getReference("schedules");
+    private void loadDriverName() {
+        if (userId == null) return; // safety
+
+        usersRef.child(userId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        if (!snapshot.exists()) return;
+
+                        String firstName = snapshot.child("firstName").getValue(String.class);
+                        String lastName = snapshot.child("lastName").getValue(String.class);
+                        tvName.setText(((firstName != null ? firstName : "") + " " +
+                                (lastName != null ? lastName : "")).trim());
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Toast.makeText(DashboardActivity.this, "Failed to load name", Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     private void loadTodaysData() {
@@ -106,30 +142,28 @@ public class DashboardActivity extends AppCompatActivity {
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mma", Locale.US);
 
         int day = today.getDayOfMonth();
-        LocalDate cutoffStart;
-        LocalDate cutoffEnd;
-        if (day <= 15) {
-            cutoffStart = today.withDayOfMonth(1);
-            cutoffEnd = today.withDayOfMonth(15);
-        } else {
-            cutoffStart = today.withDayOfMonth(16);
-            cutoffEnd = today.withDayOfMonth(today.lengthOfMonth());
-        }
+        LocalDate cutoffStart = (day <= 15)
+                ? today.withDayOfMonth(1)
+                : today.withDayOfMonth(16);
+
+        LocalDate cutoffEnd = (day <= 15)
+                ? today.withDayOfMonth(15)
+                : today.withDayOfMonth(today.lengthOfMonth());
 
         schedulesRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
+
                 int totalBookingsToday = 0;
-                double todayEarnings = 0.0;
                 int pendingBookingsToday = 0;
-                double semiMonthlyEarnings = 0.0;
                 int completedTrips = 0;
 
-                for (DataSnapshot sched : snapshot.getChildren()) {
-                    String phone = sched.child("current")
-                            .child("cellPhone")
-                            .getValue(String.class);
+                double todayEarnings = 0.0;
+                double semiMonthlyEarnings = 0.0;
 
+                for (DataSnapshot sched : snapshot.getChildren()) {
+
+                    String phone = sched.child("current").child("cellPhone").getValue(String.class);
                     String dateStr = sched.child("date").getValue(String.class);
                     String timeStr = sched.child("time").getValue(String.class);
                     String status = sched.child("status").getValue(String.class);
@@ -154,34 +188,13 @@ public class DashboardActivity extends AppCompatActivity {
                     }
 
                     if (tripDate.equals(today) && "Completed".equalsIgnoreCase(status)) {
-                        Object rateObj = sched.child("driverRate").getValue();
-                        if (rateObj != null) {
-                            try {
-                                if (rateObj instanceof Long) {
-                                    todayEarnings += ((Long) rateObj).doubleValue();
-                                } else if (rateObj instanceof Double) {
-                                    todayEarnings += (Double) rateObj;
-                                } else {
-                                    todayEarnings += Double.parseDouble(rateObj.toString());
-                                }
-                            } catch (NumberFormatException ignored) {}
-                        }
+                        todayEarnings += getRate(sched);
                     }
 
-                    if (!tripDate.isBefore(cutoffStart) && !tripDate.isAfter(cutoffEnd)
+                    if (!tripDate.isBefore(cutoffStart)
+                            && !tripDate.isAfter(cutoffEnd)
                             && "Completed".equalsIgnoreCase(status)) {
-                        Object rateObj = sched.child("driverRate").getValue();
-                        if (rateObj != null) {
-                            try {
-                                if (rateObj instanceof Long) {
-                                    semiMonthlyEarnings += ((Long) rateObj).doubleValue();
-                                } else if (rateObj instanceof Double) {
-                                    semiMonthlyEarnings += (Double) rateObj;
-                                } else {
-                                    semiMonthlyEarnings += Double.parseDouble(rateObj.toString());
-                                }
-                            } catch (NumberFormatException ignored) {}
-                        }
+                        semiMonthlyEarnings += getRate(sched);
                     }
 
                     if ("Completed".equalsIgnoreCase(status)) {
@@ -191,50 +204,54 @@ public class DashboardActivity extends AppCompatActivity {
 
                 tvTotalBookings.setText(String.valueOf(totalBookingsToday));
                 tvPendingBookings.setText(String.valueOf(pendingBookingsToday));
+                tvCompletedTrips.setText(String.valueOf(completedTrips));
+
                 tvTodayEarnings.setText("₱" + String.format(Locale.US, "%.2f", todayEarnings));
                 tvWeeklyEarnings.setText("₱" + String.format(Locale.US, "%.2f", semiMonthlyEarnings));
-                tvCompletedTrips.setText(String.valueOf(completedTrips));
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(DashboardActivity.this, error.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(DashboardActivity.this,
+                        error.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
     }
 
+    private double getRate(DataSnapshot sched) {
+        Object rateObj = sched.child("driverRate").getValue();
+        try {
+            if (rateObj instanceof Long) return ((Long) rateObj).doubleValue();
+            if (rateObj instanceof Double) return (Double) rateObj;
+            if (rateObj != null) return Double.parseDouble(rateObj.toString());
+        } catch (Exception ignored) {}
+        return 0.0;
+    }
+
     private void setupBottomNavigation() {
 
-        navDashboard.setOnClickListener(v -> {
-            // Already on Dashboard → do nothing
-        });
+        navDashboard.setOnClickListener(v -> {});
 
         navTrips.setOnClickListener(v -> {
-            Intent intent = new Intent(this, TripsActivity.class);
-            startActivity(intent);
-            // Fade animation
+            startActivity(new Intent(this, TripsActivity.class));
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             finish();
         });
 
         navHistory.setOnClickListener(v -> {
-            Intent intent = new Intent(this, HistoryActivity.class);
-            startActivity(intent);
-            // Fade animation
+            startActivity(new Intent(this, HistoryActivity.class));
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             finish();
         });
 
         navRequests.setOnClickListener(v -> {
-            Intent intent = new Intent(this, RequestsActivity.class);
-            startActivity(intent);
+            startActivity(new Intent(this, RequestsActivity.class));
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             finish();
         });
 
         navSettings.setOnClickListener(v -> {
-            Intent intent = new Intent(this, SettingsActivity.class);
-            startActivity(intent);
+            startActivity(new Intent(this, SettingsActivity.class));
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             finish();
         });

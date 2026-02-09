@@ -1,44 +1,60 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="match_parent"
+    android:fitsSystemWindows="true"
     android:layout_height="match_parent">
 
-    <!-- Google Navigation SDK map -->
     <com.google.android.libraries.navigation.NavigationView
         android:id="@+id/navigation_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1"
+        android:background="@android:color/black" />
 
     <LinearLayout
         android:orientation="vertical"
         android:padding="16dp"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:background="@android:color/white">
 
+        <!-- Destination text -->
         <TextView
             android:id="@+id/tvDestination"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Destination:" />
+            android:text="Destination:"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:paddingBottom="4dp"/>
 
+        <!-- Directions / ETA -->
         <TextView
             android:id="@+id/tvDirection"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="DropOff:" />
+            android:text="DropOff:"
+            android:textSize="16sp"
+            android:visibility="gone"
+            android:paddingBottom="4dp"/>
 
+        <!-- Distance remaining -->
         <TextView
             android:id="@+id/tvDistance"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Distance:" />
+            android:text="Distance:"
+            android:textSize="16sp"
+            android:paddingBottom="8dp"/>
 
+        <!-- Slide to update status -->
         <SeekBar
             android:id="@+id/slideArrivedPickup"
             android:layout_width="match_parent"
             android:layout_height="64dp"
-            android:layout_marginTop="3dp"
+            android:layout_marginTop="8dp"
             android:max="100"
             android:progress="3"
             android:thumb="@drawable/slider_thumb"
@@ -47,4 +63,5 @@
             android:visibility="gone" />
 
     </LinearLayout>
+
 </LinearLayout>

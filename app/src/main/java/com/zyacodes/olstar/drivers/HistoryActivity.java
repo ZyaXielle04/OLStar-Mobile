@@ -47,10 +47,6 @@ public class HistoryActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_history);
 
-        GlobalFabController.attach(this, v -> {
-            GasPaymentDialog.show(this);
-        });
-
         recyclerHistory = findViewById(R.id.recyclerHistory);
         tvEmptyHistory = findViewById(R.id.tvEmptyHistory);
 
@@ -140,6 +136,12 @@ public class HistoryActivity extends AppCompatActivity {
                     String clientName = getStringValue(tripSnapshot, "clientName");
                     String tripType = getStringValue(tripSnapshot, "tripType");
                     String driverRate = getStringValue(tripSnapshot, "driverRate");
+                    String contactNumber = getStringValue(tripSnapshot, "contactNumber");
+                    String driverName = getStringValue(tripSnapshot, "driverName");
+                    String transportUnit = getStringValue(tripSnapshot, "transportUnit");
+                    String unitType = getStringValue(tripSnapshot, "unitType");
+                    String plateNumber = getStringValue(tripSnapshot, "plateNumber");
+                    String color = getStringValue(tripSnapshot, "color");
 
                     if (date == null) {
                         Log.d("HistoryActivity", "Trip " + tripId + " skipped: no date");
@@ -155,7 +157,7 @@ public class HistoryActivity extends AppCompatActivity {
                     // Check if trip date is within rolling cutoff
                     if (!tripDate.before(cutoffStart) && !tripDate.after(cutoffEnd)) {
                         TripModel trip = new TripModel(tripId, pickup, dropOff, status,
-                                date, time, flightNumber, clientName, tripType, driverRate);
+                                date, time, flightNumber, clientName, tripType, driverRate, contactNumber, driverName, driverPhone, transportUnit, unitType, plateNumber, color);
                         historyList.add(trip);
                         Log.d("HistoryActivity", "Trip " + tripId + " added to history: " +
                                 pickup + " -> " + dropOff + ", Date: " + date + ", Flight: " + flightNumber);

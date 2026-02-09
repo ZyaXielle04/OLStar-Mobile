@@ -11,14 +11,20 @@ import android.location.Location;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
-import com.google.android.gms.location.*;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.zyacodes.olstar.R;
@@ -28,18 +34,28 @@ import java.util.Map;
 
 public class LocationTrackingService extends Service {
 
+    private static final String TAG = "LocationTrackingService";
     private static final String CHANNEL_ID = "location_tracking_channel";
+
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
-
     private DatabaseReference userLocationRef;
 
     @Override
     public void onCreate() {
         super.onCreate();
 
-        // Firebase reference to this user's location
-        String uid = FirebaseAuth.getInstance().getUid();
+        createNotificationChannel();
+        startForeground(1, buildNotification()); // ✅ MUST be first
+
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            stopSelf(); // safe now
+            return;
+        }
+
+        String uid = user.getUid();
+
         userLocationRef = FirebaseDatabase.getInstance(
                         "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/")
                 .getReference("users")
@@ -47,9 +63,6 @@ public class LocationTrackingService extends Service {
                 .child("currentLocation");
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-
-        createNotificationChannel();
-        startForeground(1, buildNotification());
 
         startLocationUpdates();
     }
@@ -60,6 +73,7 @@ public class LocationTrackingService extends Service {
                 .setContentText("Your location is being tracked")
                 .setSmallIcon(R.drawable.ic_location)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
                 .build();
     }
 
@@ -71,13 +85,15 @@ public class LocationTrackingService extends Service {
                     NotificationManager.IMPORTANCE_LOW
             );
             NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) manager.createNotificationChannel(channel);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
         }
     }
 
     private void startLocationUpdates() {
         LocationRequest request = LocationRequest.create()
-                .setInterval(1000)           // 1 second
+                .setInterval(1000)
                 .setFastestInterval(500)
                 .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
@@ -85,17 +101,29 @@ public class LocationTrackingService extends Service {
             @Override
             public void onLocationResult(@NonNull LocationResult result) {
                 Location loc = result.getLastLocation();
-                if (loc != null) pushLocationToFirebase(loc);
+                if (loc != null) {
+                    pushLocationToFirebase(loc);
+                }
             }
         };
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) return;
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.e(TAG, "Location permission not granted.");
+            stopSelf();
+            return;
+        }
 
-        fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper());
+        fusedLocationClient.requestLocationUpdates(
+                request,
+                locationCallback,
+                Looper.getMainLooper()
+        );
     }
 
-    private void pushLocationToFirebase(Location loc) {
+    private void pushLocationToFirebase(@NonNull Location loc) {
+        if (userLocationRef == null) return;
+
         Map<String, Object> data = new HashMap<>();
         data.put("latitude", loc.getLatitude());
         data.put("longitude", loc.getLongitude());
@@ -107,8 +135,9 @@ public class LocationTrackingService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (locationCallback != null)
+        if (locationCallback != null && fusedLocationClient != null) {
             fusedLocationClient.removeLocationUpdates(locationCallback);
+        }
     }
 
     @Nullable
