@@ -34,7 +34,6 @@ import com.google.android.gms.location.LocationServices;
 import com.google.firebase.database.*;
 import com.zyacodes.olstar.R;
 import com.zyacodes.olstar.adapters.TripAdapter;
-import com.zyacodes.olstar.controllers.GlobalFabController;
 import com.zyacodes.olstar.models.TripModel;
 
 import java.io.File;
@@ -51,7 +50,7 @@ public class TripsActivity extends AppCompatActivity {
 
     private RecyclerView rvTrips;
     private TripAdapter adapter;
-    private List<TripModel> tripList;
+    private List<Object> combinedList; // Changed from List<TripModel>
     private TextView tvEmpty;
     private DatabaseReference schedulesRef;
     private String driverPhone;
@@ -81,8 +80,8 @@ public class TripsActivity extends AppCompatActivity {
         tvEmpty = findViewById(R.id.tvEmpty);
         tvDate = findViewById(R.id.tvDate);
 
-        tripList = new ArrayList<>();
-        adapter = new TripAdapter(this, tripList, this::onTakePhoto);
+        combinedList = new ArrayList<>(); // Changed from tripList
+        adapter = new TripAdapter(this, combinedList, this::onTakePhoto);
         rvTrips.setAdapter(adapter);
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -153,7 +152,7 @@ public class TripsActivity extends AppCompatActivity {
     }
 
     /**
-     * ✅ TODAY + TOMORROW
+     * ✅ TODAY + TOMORROW with HEADERS
      * ✅ Sorted: Today a→b, Tomorrow a→b
      */
     private void loadTodayTrips() {
@@ -162,11 +161,14 @@ public class TripsActivity extends AppCompatActivity {
 
         DateTimeFormatter timeFormatter =
                 DateTimeFormatter.ofPattern("h:mma", Locale.US);
+        DateTimeFormatter dateDisplayFormatter =
+                DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy", Locale.US);
 
         schedulesRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                tripList.clear();
+                List<TripModel> todayTrips = new ArrayList<>();
+                List<TripModel> tomorrowTrips = new ArrayList<>();
 
                 for (DataSnapshot sched : snapshot.getChildren()) {
                     String phone = sched.child("current").child("cellPhone").getValue(String.class);
@@ -187,7 +189,7 @@ public class TripsActivity extends AppCompatActivity {
                     if ("Completed".equalsIgnoreCase(status) || "Cancelled".equalsIgnoreCase(status))
                         continue;
 
-                    tripList.add(new TripModel(
+                    TripModel trip = new TripModel(
                             sched.getKey(),
                             sched.child("pickup").getValue(String.class),
                             sched.child("dropOff").getValue(String.class),
@@ -205,32 +207,38 @@ public class TripsActivity extends AppCompatActivity {
                             sched.child("unitType").getValue(String.class),
                             sched.child("plateNumber").getValue(String.class),
                             sched.child("color").getValue(String.class)
-                    ));
+                    );
+
+                    if (tripDate.equals(today)) {
+                        todayTrips.add(trip);
+                    } else if (tripDate.equals(tomorrow)) {
+                        tomorrowTrips.add(trip);
+                    }
                 }
 
-                Collections.sort(tripList, (t1, t2) -> {
-                    try {
-                        LocalDate d1 = LocalDate.parse(t1.getDate());
-                        LocalDate d2 = LocalDate.parse(t2.getDate());
+                // Sort each list by time
+                Collections.sort(todayTrips, (t1, t2) -> compareTripsByTime(t1, t2, timeFormatter));
+                Collections.sort(tomorrowTrips, (t1, t2) -> compareTripsByTime(t1, t2, timeFormatter));
 
-                        int dateCompare = d1.compareTo(d2);
-                        if (dateCompare != 0) return dateCompare;
+                // Build combined list with headers
+                combinedList.clear();
 
-                        String time1 = t1.getTime().replace("12Noon", "12:00PM").toUpperCase().trim();
-                        String time2 = t2.getTime().replace("12Noon", "12:00PM").toUpperCase().trim();
+                // Add today's trips with header
+                if (!todayTrips.isEmpty()) {
+                    combinedList.add("TODAY'S TRIPS - " + today.format(dateDisplayFormatter));
+                    combinedList.addAll(todayTrips);
+                }
 
-                        LocalTime lt1 = LocalTime.parse(time1, timeFormatter);
-                        LocalTime lt2 = LocalTime.parse(time2, timeFormatter);
+                // Add tomorrow's trips with header
+                if (!tomorrowTrips.isEmpty()) {
+                    combinedList.add("TOMORROW'S TRIPS - " + tomorrow.format(dateDisplayFormatter));
+                    combinedList.addAll(tomorrowTrips);
+                }
 
-                        return lt1.compareTo(lt2);
-                    } catch (Exception e) {
-                        return 0;
-                    }
-                });
-
-                tvEmpty.setVisibility(tripList.isEmpty() ? TextView.VISIBLE : TextView.GONE);
-                rvTrips.setVisibility(tripList.isEmpty() ? RecyclerView.GONE : RecyclerView.VISIBLE);
                 adapter.notifyDataSetChanged();
+
+                tvEmpty.setVisibility(combinedList.isEmpty() ? TextView.VISIBLE : TextView.GONE);
+                rvTrips.setVisibility(combinedList.isEmpty() ? RecyclerView.GONE : RecyclerView.VISIBLE);
             }
 
             @Override
@@ -238,6 +246,20 @@ public class TripsActivity extends AppCompatActivity {
                 Toast.makeText(TripsActivity.this, error.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    private int compareTripsByTime(TripModel t1, TripModel t2, DateTimeFormatter timeFormatter) {
+        try {
+            String time1 = t1.getTime().replace("12Noon", "12:00PM").toUpperCase().trim();
+            String time2 = t2.getTime().replace("12Noon", "12:00PM").toUpperCase().trim();
+
+            LocalTime lt1 = LocalTime.parse(time1, timeFormatter);
+            LocalTime lt2 = LocalTime.parse(time2, timeFormatter);
+
+            return lt1.compareTo(lt2);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     // ---------------- CAMERA / CLOUDINARY ----------------
@@ -499,8 +521,17 @@ public class TripsActivity extends AppCompatActivity {
 
                             statusRef.setValue(newStatus).addOnSuccessListener(v -> {
                                 trip.setStatus(newStatus);
-                                int pos = tripList.indexOf(trip);
-                                if (pos != -1) adapter.notifyItemChanged(pos);
+                                // Find and update the trip in combinedList
+                                for (int i = 0; i < combinedList.size(); i++) {
+                                    Object item = combinedList.get(i);
+                                    if (item instanceof TripModel) {
+                                        TripModel t = (TripModel) item;
+                                        if (t.getTripId().equals(trip.getTripId())) {
+                                            adapter.notifyItemChanged(i);
+                                            break;
+                                        }
+                                    }
+                                }
 
                                 Toast.makeText(TripsActivity.this,
                                         "Photo uploaded & status updated to " + newStatus,

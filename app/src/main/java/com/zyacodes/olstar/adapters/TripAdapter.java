@@ -36,7 +36,7 @@ import java.util.List;
 
 public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
 
-    private final List<TripModel> trips;
+    private final List<Object> items; // Can be String (header) or TripModel
     private final Context context;
 
     // Callback for photo taking
@@ -46,9 +46,9 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
         void onTakePhoto(TripModel trip, String photoType);
     }
 
-    public TripAdapter(Context context, List<TripModel> trips, OnPhotoClickListener listener) {
+    public TripAdapter(Context context, List<Object> items, OnPhotoClickListener listener) {
         this.context = context;
-        this.trips = trips;
+        this.items = items;
         this.photoClickListener = listener;
     }
 
@@ -62,7 +62,44 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder h, int position) {
-        TripModel trip = trips.get(position);
+        Object item = items.get(position);
+
+        if (item instanceof String) {
+            // This is a header item (e.g., "TODAY'S TRIPS - Wednesday, February 12, 2025")
+            String headerText = (String) item;
+            bindHeader(h, headerText, position);
+        } else if (item instanceof TripModel) {
+            // This is a trip item
+            TripModel trip = (TripModel) item;
+            bindTrip(h, trip, position);
+        }
+    }
+
+    private void bindHeader(ViewHolder h, String headerText, int position) {
+        // Show header layout, hide trip layout
+        h.dateHeaderLayout.setVisibility(View.VISIBLE);
+        h.mainCard.setVisibility(View.GONE);
+        h.hiddenLayout.setVisibility(View.GONE);
+        h.statusProgressContainer.setVisibility(View.GONE);
+
+        // Set header text
+        h.tvHeaderTitle.setText(headerText);
+
+        // Show/hide top divider based on position
+        if (position == 0) {
+            h.headerDividerTop.setVisibility(View.GONE);
+        } else {
+            h.headerDividerTop.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void bindTrip(ViewHolder h, TripModel trip, int position) {
+        // Show trip layout, hide header layout
+        h.dateHeaderLayout.setVisibility(View.GONE);
+        h.mainCard.setVisibility(View.VISIBLE);
+        h.hiddenLayout.setVisibility(View.VISIBLE);
+        h.statusProgressContainer.setVisibility(View.VISIBLE);
+
         String status = trip.getStatus();
 
         h.tvTripId.setText("Trip ID: " + trip.getTripId());
@@ -206,16 +243,16 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
                     flightNumber = flightNumber.replace(" ", "");
                     String url = "https://flightaware.com/live/flight/" + flightNumber;
                     try {
-                         Intent browserIntent = new Intent(Intent.ACTION_VIEW);
-                         browserIntent.setData(android.net.Uri.parse(url));
-                         browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                         v.getContext().startActivity(browserIntent);
-                         } catch (Exception e) {
-                         Toast.makeText(v.getContext(), "Cannot open FlightAware. No browser found.", Toast.LENGTH_SHORT).show();
-                         }
-                         } else {
-                         Toast.makeText(v.getContext(), "Flight number not available", Toast.LENGTH_SHORT).show();
-                         } }); }
+                        Intent browserIntent = new Intent(Intent.ACTION_VIEW);
+                        browserIntent.setData(android.net.Uri.parse(url));
+                        browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        v.getContext().startActivity(browserIntent);
+                    } catch (Exception e) {
+                        Toast.makeText(v.getContext(), "Cannot open FlightAware. No browser found.", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(v.getContext(), "Flight number not available", Toast.LENGTH_SHORT).show();
+                } }); }
 
         // Copy Client Name
         h.copyClientName.setOnClickListener(v -> {
@@ -389,12 +426,18 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
 
     @Override
     public int getItemCount() {
-        return trips.size();
+        return items.size();
     }
 
     // ---------------- VIEW HOLDER ----------------
     static class ViewHolder extends RecyclerView.ViewHolder {
-        public LinearLayout statusProgressContainer; // <- corrected
+        // Header views
+        LinearLayout dateHeaderLayout;
+        TextView tvHeaderTitle;
+        View headerDividerTop;
+
+        // Trip views
+        public LinearLayout statusProgressContainer;
         LinearLayout mainCard, hiddenLayout;
         TextView tvTripId, tvFlightNo, tvClientName, tvDate, tvTime, tvContactNumber, tvPickup, tvDropoff, tvStatus;
         SeekBar slideConfirm;
@@ -404,6 +447,13 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
 
         ViewHolder(@NonNull View itemView) {
             super(itemView);
+
+            // Initialize header views
+            dateHeaderLayout = itemView.findViewById(R.id.dateHeaderLayout);
+            tvHeaderTitle = itemView.findViewById(R.id.tvHeaderTitle);
+            headerDividerTop = itemView.findViewById(R.id.headerDividerTop);
+
+            // Initialize trip views
             mainCard = itemView.findViewById(R.id.mainCard);
             hiddenLayout = itemView.findViewById(R.id.hiddenLayout);
             tvTripId = itemView.findViewById(R.id.tvTripId);
