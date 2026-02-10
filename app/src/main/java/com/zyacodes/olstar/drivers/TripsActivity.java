@@ -334,7 +334,7 @@ public class TripsActivity extends AppCompatActivity {
             paint.setColor(Color.BLACK);
             paint.setTextSize(125); // bigger text
             paint.setAntiAlias(true);
-            paint.setShadowLayer(5f, 0f, 0f, Color.YELLOW);
+            paint.setShadowLayer(25f, 10f, 10f, Color.WHITE);
 
             int padding = 40;
             float x, y;

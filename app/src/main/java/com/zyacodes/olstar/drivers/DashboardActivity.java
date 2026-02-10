@@ -32,7 +32,7 @@ public class DashboardActivity extends AppCompatActivity {
     private TextView tvTotalBookings, tvTodayEarnings, tvPendingBookings;
     private TextView tvWeeklyEarnings, tvCompletedTrips;
 
-    private LinearLayout navDashboard, navTrips, navRequests, navSettings, navHistory;
+    private LinearLayout navDashboard, navTrips, navRequests, navSettings, navHistory, llTodaysBookings;
 
     private DatabaseReference schedulesRef, usersRef;
     private FirebaseAuth auth;
@@ -94,6 +94,8 @@ public class DashboardActivity extends AppCompatActivity {
         navRequests = findViewById(R.id.navRequests);
         navSettings = findViewById(R.id.navSettings);
         navHistory = findViewById(R.id.navHistory);
+
+        llTodaysBookings = findViewById(R.id.llTodaysBookings);
     }
 
     private void loadUserFromPrefs() {
@@ -252,6 +254,12 @@ public class DashboardActivity extends AppCompatActivity {
 
         navSettings.setOnClickListener(v -> {
             startActivity(new Intent(this, SettingsActivity.class));
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            finish();
+        });
+
+        llTodaysBookings.setOnClickListener(v -> {
+            startActivity(new Intent(this, TripsActivity.class));
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             finish();
         });
