@@ -55,6 +55,17 @@
         android:background="@drawable/bg_card"
         android:elevation="5dp">
 
+        <TextView
+            android:id="@+id/tvQueueBadge"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/circle_blue_background"
+            android:gravity="center"
+            android:textColor="@android:color/white"
+            android:textSize="25sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <!-- Trip ID and Flight No -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -145,6 +156,16 @@
             android:textColor="#555555"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
+
+        <TextView
+            android:id="@+id/tvVehicle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Vehicle:"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#555555"
+            android:layout_marginTop="20dp"/>
 
         <!-- Status -->
         <TextView
@@ -346,6 +367,17 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:text="Set Alarm for Trip"
+            android:background="@drawable/bg_card"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"/>
+
+        <!-- No Show Button -->
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnClientNoShow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Client No Show"
             android:background="@drawable/bg_card"
             android:textColor="@android:color/black"
             android:textSize="18sp"/>

@@ -46,10 +46,17 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
         void onTakePhoto(TripModel trip, String photoType);
     }
 
-    public TripAdapter(Context context, List<Object> items, OnPhotoClickListener listener) {
+    public interface OnClientNoShowListener {
+        void onClientNoShow(TripModel trip);
+    }
+
+    private final OnClientNoShowListener noShowListener;
+
+    public TripAdapter(Context context, List<Object> items, OnPhotoClickListener photoListener, OnClientNoShowListener noShowListener) {
         this.context = context;
         this.items = items;
-        this.photoClickListener = listener;
+        this.photoClickListener = photoListener;
+        this.noShowListener = noShowListener;
     }
 
     @NonNull
@@ -102,7 +109,6 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
 
         String status = trip.getStatus();
 
-        h.tvTripId.setText("Trip ID: " + trip.getTripId());
         h.tvFlightNo.setText(trip.getFlightNumber());
         h.tvClientName.setText("Client Name: " + trip.getClientName());
         h.tvContactNumber.setText("Contact No.: " + trip.getContactNumber());
@@ -113,9 +119,54 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
         h.tvStatus.setText("Status: " + status);
         h.statusProgressContainer.removeAllViews();
 
+        // Display the PERMANENT trip number prominently using the badge
+        int tripNumber = trip.getTripNumber();
+        if (tripNumber > 0) {
+            // Show the queue badge with the trip number
+            if (h.tvQueueBadge != null) {
+                h.tvQueueBadge.setText(String.valueOf(tripNumber));
+                h.tvQueueBadge.setVisibility(View.VISIBLE);
 
+                // Change badge color based on status
+                if (trip.isCompleted()) {
+                    h.tvQueueBadge.setBackgroundResource(R.drawable.circle_gray_background);
+                } else if (trip.isCancelled() || trip.isNoShow()) {
+                    h.tvQueueBadge.setBackgroundResource(R.drawable.circle_red_background);
+                } else {
+                    h.tvQueueBadge.setBackgroundResource(R.drawable.circle_blue_background);
+                }
+            }
+
+            // Update the trip ID text with trip number
+            h.tvTripId.setText("Trip #" + tripNumber + " • ID: " + trip.getTripId());
+        } else {
+            // Hide badge if no trip number
+            if (h.tvQueueBadge != null) {
+                h.tvQueueBadge.setVisibility(View.GONE);
+            }
+            h.tvTripId.setText("Trip ID: " + trip.getTripId());
+        }
+
+        // Visual indicator for completed/cancelled/no show trips
+        if (trip.isCompleted() || trip.isCancelled() || trip.isNoShow()) {
+            h.mainCard.setAlpha(0.6f);
+        } else {
+            h.mainCard.setAlpha(1.0f);
+        }
+
+        // Safer version with null checks
+        String transportUnit = trip.getTransportUnit() != null ? trip.getTransportUnit() : "N/A";
+        String plateNumber = trip.getPlateNumber() != null ? trip.getPlateNumber() : "N/A";
+        String unitType = trip.getUnitType() != null ? trip.getUnitType() : "N/A";
+
+        String vehicleInfo = String.format("Vehicle: %s | %s (%s)",
+                transportUnit, plateNumber, unitType);
+        h.tvVehicle.setText(vehicleInfo);
+
+        // Status Progress Steps
         String[] statusKeys = {"Pending", "Confirmed", "Arrived", "On Route", "Completed"};
         boolean cancelled = "Cancelled".equalsIgnoreCase(trip.getStatus());
+        boolean noShow = "No Show".equalsIgnoreCase(trip.getStatus());
         int currentIndex = -1;
         for (int i = 0; i < statusKeys.length; i++) {
             if (statusKeys[i].equalsIgnoreCase(trip.getStatus())) {
@@ -132,7 +183,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
 
-// Map for labels
+        // Map for labels
         Map<String, String> statusMap = new HashMap<>();
         statusMap.put("Pending", "The Driver is preparing to dispatch.");
         statusMap.put("Confirmed", "Driver has departed");
@@ -140,6 +191,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
         statusMap.put("On Route", "Service Start");
         statusMap.put("Completed", "Service finished");
         statusMap.put("Cancelled", "Booking Cancelled");
+        statusMap.put("No Show", "Client No Show");
 
         for (int i = 0; i < statusKeys.length; i++) {
             LinearLayout step = new LinearLayout(context);
@@ -154,8 +206,9 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             circle.setGravity(Gravity.CENTER);
             circle.setWidth(60);
             circle.setHeight(60);
-            circle.setBackgroundResource(R.drawable.circle_background); // make a drawable for default
-            if (cancelled) {
+            circle.setBackgroundResource(R.drawable.circle_background);
+
+            if (cancelled || noShow) {
                 circle.setBackgroundColor(Color.RED);
             } else if (i <= currentIndex) {
                 circle.setBackgroundColor(Color.BLUE);
@@ -167,6 +220,8 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             label.setTextSize(10);
             if (cancelled) {
                 label.setText(i == 2 ? "Booking Cancelled" : "");
+            } else if (noShow) {
+                label.setText(i == 2 ? "Client No Show" : "");
             } else {
                 label.setText(statusMap.get(statusKeys[i]));
             }
@@ -178,9 +233,9 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             if (i < statusKeys.length - 1) {
                 View line = new View(context);
                 LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(
-                        0, 5, 1f); // horizontal line
+                        0, 5, 1f);
                 line.setLayoutParams(lineParams);
-                if (cancelled) {
+                if (cancelled || noShow) {
                     line.setBackgroundColor(Color.RED);
                 } else if (i < currentIndex) {
                     line.setBackgroundColor(Color.BLUE);
@@ -193,7 +248,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             container.addView(step);
         }
 
-// Add to a container in item_trip.xml
+        // Add to container in item_trip.xml
         h.statusProgressContainer.addView(container);
 
         // Toggle hidden layout
@@ -204,7 +259,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
         });
 
         // Slide to confirm logic
-        if ("Completed".equalsIgnoreCase(status)) {
+        if ("Completed".equalsIgnoreCase(status) || "Cancelled".equalsIgnoreCase(status) || "No Show".equalsIgnoreCase(status)) {
             h.slideConfirm.setVisibility(View.GONE);
         } else {
             h.slideConfirm.setVisibility(View.VISIBLE);
@@ -237,9 +292,11 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
         // ---------------- Button Functionality ----------------
 
         // FlightAware button
-        Button btnFlightAware = h.itemView.findViewById(R.id.btnFlightAware); if (btnFlightAware != null) {
+        Button btnFlightAware = h.itemView.findViewById(R.id.btnFlightAware);
+        if (btnFlightAware != null) {
             btnFlightAware.setOnClickListener(v -> {
-                String flightNumber = trip.getFlightNumber(); if (flightNumber != null && !flightNumber.isEmpty()) {
+                String flightNumber = trip.getFlightNumber();
+                if (flightNumber != null && !flightNumber.isEmpty()) {
                     flightNumber = flightNumber.replace(" ", "");
                     String url = "https://flightaware.com/live/flight/" + flightNumber;
                     try {
@@ -252,7 +309,9 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
                     }
                 } else {
                     Toast.makeText(v.getContext(), "Flight number not available", Toast.LENGTH_SHORT).show();
-                } }); }
+                }
+            });
+        }
 
         // Copy Client Name
         h.copyClientName.setOnClickListener(v -> {
@@ -270,9 +329,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             Toast.makeText(v.getContext(), "Contact Number copied", Toast.LENGTH_SHORT).show();
         });
 
-        // ---------------- Updated Button Templates ----------------
-
-// Send Itinerary
+        // Send Itinerary
         h.sendItenary.setOnClickListener(v -> {
             String message = "Hi Good day Sir/Madam " + trip.getClientName() +
                     ", I am " + trip.getDriverName() + " of Klook X OL-Star Transport. " +
@@ -298,7 +355,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             Toast.makeText(v.getContext(), "Itinerary copied to clipboard", Toast.LENGTH_SHORT).show();
         });
 
-// Driver Arrived at Pickup
+        // Driver Arrived at Pickup
         h.arrivedPickup.setOnClickListener(v -> {
             String message = "Hi Good day Sir/Madam " + trip.getClientName() +
                     ", I am " + trip.getDriverName() + " I am here at " + trip.getPickup() +
@@ -319,7 +376,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             Toast.makeText(v.getContext(), "Arrived message copied to clipboard", Toast.LENGTH_SHORT).show();
         });
 
-// Request Client Update
+        // Request Client Update
         h.driverUpdate.setOnClickListener(v -> {
             String message = "Good Day, I am " + trip.getDriverName() + ". Can I ask for an update? " +
                     "Once you arrive at " + trip.getPickup() + ", please message me because I am staying in the parking area. " +
@@ -331,7 +388,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             Toast.makeText(v.getContext(), "Driver Update copied to clipboard", Toast.LENGTH_SHORT).show();
         });
 
-// Review and Ratings
+        // Review and Ratings
         h.reviewAndRatings.setOnClickListener(v -> {
             String message = "Good Day Ma'am/Sir " + trip.getClientName() +
                     ", I am " + trip.getDriverName() + ", your assigned driver. " +
@@ -345,7 +402,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             Toast.makeText(v.getContext(), "Review request copied to clipboard", Toast.LENGTH_SHORT).show();
         });
 
-// Overtime Message
+        // Overtime Message
         h.overtimeMessage.setOnClickListener(v -> {
             String message = "Good Day, we regret to inform that you have consumed the 1 hour free waiting time. " +
                     "You consumed additional XX hour(s) and you have to pay PHP YYY.";
@@ -356,7 +413,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             Toast.makeText(v.getContext(), "Overtime message copied to clipboard", Toast.LENGTH_SHORT).show();
         });
 
-        // Back to Active Trip
+        // Back to Active Trip (Google Maps)
         h.backToActiveTrip.setOnClickListener(v -> {
             Intent intent = new Intent(v.getContext(), TripActiveActivity.class);
             intent.putExtra("tripId", trip.getTripId());
@@ -387,9 +444,9 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
                 // Adjust based on trip status
                 switch (trip.getStatus().toLowerCase()) {
                     case "departure":
-                        alarmTime.add(Calendar.HOUR_OF_DAY, -1); // 1 hour earlier
-                        alarmTime.add(Calendar.MINUTE, -50);     // plus 50 min earlier
-                        alarmTime.add(Calendar.MINUTE, -40);     // plus 40 min earlier
+                        alarmTime.add(Calendar.HOUR_OF_DAY, -1);
+                        alarmTime.add(Calendar.MINUTE, -50);
+                        alarmTime.add(Calendar.MINUTE, -40);
                         break;
                     case "arrival":
                         alarmTime.add(Calendar.MINUTE, -20);
@@ -422,6 +479,36 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
                 Toast.makeText(v.getContext(), "Failed to set alarm", Toast.LENGTH_SHORT).show();
             }
         });
+
+        // ================ CLIENT NO SHOW BUTTON ================
+        h.btnClientNoShow.setOnClickListener(v -> {
+            // Only allow if trip is not already completed, cancelled, or no show
+            if (trip.isCompleted() || trip.isCancelled() || trip.isNoShow()) {
+                Toast.makeText(v.getContext(),
+                        "Cannot mark as no show - trip is already " + trip.getStatus(),
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Show AlertDialog
+            new androidx.appcompat.app.AlertDialog.Builder(v.getContext())
+                    .setTitle("⚠️ Client No Show")
+                    .setMessage("Are you sure you want to mark this trip as 'Client No Show'?\n\n" +
+                            "🚫 Trip #" + trip.getTripNumber() + "\n" +
+                            "👤 Client: " + trip.getClientName() + "\n" +
+                            "⏰ Time: " + trip.getTime() + "\n" +
+                            "📍 Pickup: " + trip.getPickup() + "\n\n" +
+                            "This action cannot be undone.")
+                    .setIcon(android.R.drawable.ic_dialog_alert)
+                    .setPositiveButton("Yes, No Show", (dialog, which) -> {
+                        if (noShowListener != null) {
+                            noShowListener.onClientNoShow(trip);
+                        }
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
+        // ================ END CLIENT NO SHOW BUTTON ================
     }
 
     @Override
@@ -439,11 +526,11 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
         // Trip views
         public LinearLayout statusProgressContainer;
         LinearLayout mainCard, hiddenLayout;
-        TextView tvTripId, tvFlightNo, tvClientName, tvDate, tvTime, tvContactNumber, tvPickup, tvDropoff, tvStatus;
+        TextView tvTripId, tvFlightNo, tvClientName, tvDate, tvTime, tvContactNumber, tvPickup, tvDropoff, tvStatus, tvVehicle, tvQueueBadge;
         SeekBar slideConfirm;
         AppCompatButton btnFlightAware, copyClientName, copyContactNumber, sendItenary,
                 arrivedPickup, driverUpdate, reviewAndRatings, overtimeMessage,
-                backToActiveTrip, btnSetAlarm;
+                backToActiveTrip, btnSetAlarm, btnClientNoShow;
 
         ViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -466,6 +553,8 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             tvDate = itemView.findViewById(R.id.tvDate);
             tvTime = itemView.findViewById(R.id.tvTime);
             slideConfirm = itemView.findViewById(R.id.slideConfirm);
+            tvVehicle = itemView.findViewById(R.id.tvVehicle);
+            tvQueueBadge = itemView.findViewById(R.id.tvQueueBadge);
 
             // Corrected line
             statusProgressContainer = itemView.findViewById(R.id.statusContainer);
@@ -481,6 +570,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             overtimeMessage = itemView.findViewById(R.id.overtimeMessage);
             backToActiveTrip = itemView.findViewById(R.id.backToActiveTrip);
             btnSetAlarm = itemView.findViewById(R.id.btnSetAlarm);
+            btnClientNoShow = itemView.findViewById(R.id.btnClientNoShow);
         }
     }
 }

@@ -81,7 +81,7 @@ public class TripsActivity extends AppCompatActivity {
         tvDate = findViewById(R.id.tvDate);
 
         combinedList = new ArrayList<>(); // Changed from tripList
-        adapter = new TripAdapter(this, combinedList, this::onTakePhoto);
+        adapter = new TripAdapter(this, combinedList, this::onTakePhoto, this::onClientNoShow);
         rvTrips.setAdapter(adapter);
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -94,6 +94,57 @@ public class TripsActivity extends AppCompatActivity {
         initCloudinary();
         initCameraLauncher();
         displayCurrentDate();
+    }
+
+    private void onClientNoShow(TripModel trip) {
+        // Show loading toast
+        Toast.makeText(this, "Processing no show for Trip #" + trip.getTripNumber() + "...", Toast.LENGTH_SHORT).show();
+
+        // Update Firebase - only set clientNoShow to true, keep status unchanged
+        schedulesRef.child(trip.getTripId())
+                .child("clientNoShow")
+                .setValue(true)
+                .addOnSuccessListener(aVoid -> {
+                    // OPTIONAL: Uncomment this block if you want to also update status to "No Show"
+                /*
+                // Also update the status to "No Show"
+                schedulesRef.child(trip.getTripId())
+                        .child("status")
+                        .setValue("No Show")
+                        .addOnSuccessListener(aVoid2 -> {
+                            // Update local trip object
+                            trip.setStatus("No Show");
+
+                            // Refresh the adapter
+                            adapter.notifyDataSetChanged();
+
+                            Toast.makeText(TripsActivity.this,
+                                    "✅ Trip #" + trip.getTripNumber() + " marked as Client No Show (Status updated)",
+                                    Toast.LENGTH_LONG).show();
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(TripsActivity.this,
+                                    "Failed to update status: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT).show();
+                        });
+                */
+
+                    // If NOT updating status, just refresh and show success message
+                    // Update local trip object to reflect no show status in UI
+                    trip.setNoShow(true); // You'll need to add this method to TripModel
+
+                    // Refresh the adapter
+                    adapter.notifyDataSetChanged();
+
+                    Toast.makeText(TripsActivity.this,
+                            "✅ Trip #" + trip.getTripNumber() + " marked as Client No Show",
+                            Toast.LENGTH_LONG).show();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(TripsActivity.this,
+                            "Failed to mark no show: " + e.getMessage(),
+                            Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void displayCurrentDate() {
@@ -167,16 +218,19 @@ public class TripsActivity extends AppCompatActivity {
         schedulesRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                List<TripModel> todayTrips = new ArrayList<>();
-                List<TripModel> tomorrowTrips = new ArrayList<>();
+                List<TripModel> allTodayTrips = new ArrayList<>();  // ALL trips for today (including completed)
+                List<TripModel> allTomorrowTrips = new ArrayList<>(); // ALL trips for tomorrow (including completed)
+                List<TripModel> activeTodayTrips = new ArrayList<>(); // Only non-completed/non-cancelled for display
+                List<TripModel> activeTomorrowTrips = new ArrayList<>(); // Only non-completed/non-cancelled for display
 
+                // Get ALL trips for today/tomorrow (including completed/cancelled)
                 for (DataSnapshot sched : snapshot.getChildren()) {
                     String phone = sched.child("current").child("cellPhone").getValue(String.class);
                     if (phone == null || !phone.equals(driverPhone)) continue;
 
                     String dateStr = sched.child("date").getValue(String.class);
                     String status = sched.child("status").getValue(String.class);
-                    if (dateStr == null || status == null) continue;
+                    if (dateStr == null) continue;
 
                     LocalDate tripDate;
                     try {
@@ -186,8 +240,6 @@ public class TripsActivity extends AppCompatActivity {
                     }
 
                     if (!(tripDate.equals(today) || tripDate.equals(tomorrow))) continue;
-                    if ("Completed".equalsIgnoreCase(status) || "Cancelled".equalsIgnoreCase(status))
-                        continue;
 
                     TripModel trip = new TripModel(
                             sched.getKey(),
@@ -210,29 +262,51 @@ public class TripsActivity extends AppCompatActivity {
                     );
 
                     if (tripDate.equals(today)) {
-                        todayTrips.add(trip);
+                        allTodayTrips.add(trip);
+                        if (!"Completed".equalsIgnoreCase(status) && !"Cancelled".equalsIgnoreCase(status)) {
+                            activeTodayTrips.add(trip);
+                        }
                     } else if (tripDate.equals(tomorrow)) {
-                        tomorrowTrips.add(trip);
+                        allTomorrowTrips.add(trip);
+                        if (!"Completed".equalsIgnoreCase(status) && !"Cancelled".equalsIgnoreCase(status)) {
+                            activeTomorrowTrips.add(trip);
+                        }
                     }
                 }
 
-                // Sort each list by time
-                Collections.sort(todayTrips, (t1, t2) -> compareTripsByTime(t1, t2, timeFormatter));
-                Collections.sort(tomorrowTrips, (t1, t2) -> compareTripsByTime(t1, t2, timeFormatter));
+                // Sort ALL trips by time to determine their PERMANENT trip number
+                sortTripsByTime(allTodayTrips, timeFormatter);
+                sortTripsByTime(allTomorrowTrips, timeFormatter);
+
+                // Assign PERMANENT trip numbers based on time order (1, 2, 3, etc.)
+                // These numbers NEVER change, even if trip is completed
+                int tripNumber = 1;
+                for (TripModel trip : allTodayTrips) {
+                    trip.setTripNumber(tripNumber++);
+                }
+
+                tripNumber = 1;
+                for (TripModel trip : allTomorrowTrips) {
+                    trip.setTripNumber(tripNumber++);
+                }
+
+                // Sort ACTIVE trips by time for display (they keep their permanent numbers)
+                sortTripsByTime(activeTodayTrips, timeFormatter);
+                sortTripsByTime(activeTomorrowTrips, timeFormatter);
 
                 // Build combined list with headers
                 combinedList.clear();
 
-                // Add today's trips with header
-                if (!todayTrips.isEmpty()) {
+                // Add today's active trips with header
+                if (!activeTodayTrips.isEmpty()) {
                     combinedList.add("TODAY'S TRIPS - " + today.format(dateDisplayFormatter));
-                    combinedList.addAll(todayTrips);
+                    combinedList.addAll(activeTodayTrips);
                 }
 
-                // Add tomorrow's trips with header
-                if (!tomorrowTrips.isEmpty()) {
+                // Add tomorrow's active trips with header
+                if (!activeTomorrowTrips.isEmpty()) {
                     combinedList.add("TOMORROW'S TRIPS - " + tomorrow.format(dateDisplayFormatter));
-                    combinedList.addAll(tomorrowTrips);
+                    combinedList.addAll(activeTomorrowTrips);
                 }
 
                 adapter.notifyDataSetChanged();
@@ -248,18 +322,20 @@ public class TripsActivity extends AppCompatActivity {
         });
     }
 
-    private int compareTripsByTime(TripModel t1, TripModel t2, DateTimeFormatter timeFormatter) {
-        try {
-            String time1 = t1.getTime().replace("12Noon", "12:00PM").toUpperCase().trim();
-            String time2 = t2.getTime().replace("12Noon", "12:00PM").toUpperCase().trim();
+    private void sortTripsByTime(List<TripModel> trips, DateTimeFormatter timeFormatter) {
+        Collections.sort(trips, (t1, t2) -> {
+            try {
+                String time1 = t1.getTime().replace("12Noon", "12:00PM").toUpperCase().trim();
+                String time2 = t2.getTime().replace("12Noon", "12:00PM").toUpperCase().trim();
 
-            LocalTime lt1 = LocalTime.parse(time1, timeFormatter);
-            LocalTime lt2 = LocalTime.parse(time2, timeFormatter);
+                LocalTime lt1 = LocalTime.parse(time1, timeFormatter);
+                LocalTime lt2 = LocalTime.parse(time2, timeFormatter);
 
-            return lt1.compareTo(lt2);
-        } catch (Exception e) {
-            return 0;
-        }
+                return lt1.compareTo(lt2);
+            } catch (Exception e) {
+                return 0;
+            }
+        });
     }
 
     // ---------------- CAMERA / CLOUDINARY ----------------
