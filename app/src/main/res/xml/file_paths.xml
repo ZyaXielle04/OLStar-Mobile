@@ -1,7 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- App-specific pictures folder -->
+    <!-- App-specific pictures folder - exact match with OLStar subdirectory -->
     <external-files-path
         name="pictures"
         path="Pictures/OLStar/" />
+
+    <!-- For backward compatibility -->
+    <external-files-path
+        name="external_files"
+        path="." />
+
+    <!-- Cache directory -->
+    <cache-path
+        name="cache"
+        path="." />
 </paths>

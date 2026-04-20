@@ -18,6 +18,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import java.util.Map;
 import java.util.HashMap;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 
 import androidx.annotation.NonNull;
@@ -109,6 +112,14 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
 
         String status = trip.getStatus();
 
+        String tripType = trip.getTripType();
+        if (tripType != null && !tripType.isEmpty()) {
+            h.tvTripType.setText("Trip Type: " + tripType);
+            h.tvTripType.setVisibility(View.VISIBLE);
+        } else {
+            h.tvTripType.setVisibility(View.GONE); // Hide if no trip type
+        }
+
         h.tvFlightNo.setText(trip.getFlightNumber());
         h.tvClientName.setText("Client Name: " + trip.getClientName());
         h.tvContactNumber.setText("Contact No.: " + trip.getContactNumber());
@@ -163,6 +174,34 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
                 transportUnit, plateNumber, unitType);
         h.tvVehicle.setText(vehicleInfo);
 
+        // ---------------- RFID BALANCE DISPLAY ----------------
+        double rfidBalance = trip.getRfidBalance();
+        long rfidLastUpdated = trip.getRfidLastUpdated();
+
+        // Set RFID Balance with color coding
+        String balanceText = String.format(Locale.US, "RFID Balance: ₱%,.2f", rfidBalance);
+        h.tvRFID.setText(balanceText);
+
+        // Color code the balance based on amount
+        if (rfidBalance < 200) {
+            h.tvRFID.setTextColor(Color.parseColor("#D32F2F")); // Red for low balance
+        } else if (rfidBalance < 500) {
+            h.tvRFID.setTextColor(Color.parseColor("#F57C00")); // Orange for warning
+        } else {
+            h.tvRFID.setTextColor(Color.parseColor("#2E7D32")); // Green for good balance
+        }
+
+        // Set RFID Last Updated
+        if (rfidLastUpdated > 0) {
+            SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.US);
+            String dateStr = sdf.format(new Date(rfidLastUpdated));
+            h.tvRFIDlastUpdated.setText("RFID Last updated: " + dateStr);
+            h.tvRFIDlastUpdated.setTextColor(Color.parseColor("#666666"));
+        } else {
+            h.tvRFIDlastUpdated.setText("RFID Last updated: Never");
+            h.tvRFIDlastUpdated.setTextColor(Color.parseColor("#999999"));
+        }
+
         // Status Progress Steps
         String[] statusKeys = {"Pending", "Confirmed", "Arrived", "On Route", "Completed"};
         boolean cancelled = "Cancelled".equalsIgnoreCase(trip.getStatus());
@@ -209,15 +248,26 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             circle.setBackgroundResource(R.drawable.circle_background);
 
             if (cancelled || noShow) {
-                circle.setBackgroundColor(Color.RED);
+                // Cancelled/No Show - all steps RED
+                circle.setBackgroundColor(Color.parseColor("#F44336")); // Keep red for cancelled
+                circle.setTextColor(Color.WHITE);
+
             } else if (i <= currentIndex) {
-                circle.setBackgroundColor(Color.BLUE);
+                // Completed or current step
+                circle.setBackgroundColor(Color.parseColor("#427AA1"));
+                circle.setTextColor(Color.BLACK); // Black text for better contrast on light blue
+
+            } else {
+                // Future steps - use a lighter gray or keep as is
+                circle.setBackgroundColor(Color.parseColor("#E0E0E0"));
+                circle.setTextColor(Color.BLACK);
             }
 
             // Label
             TextView label = new TextView(context);
             label.setGravity(Gravity.CENTER);
             label.setTextSize(10);
+            label.setTextColor(Color.BLACK);
             if (cancelled) {
                 label.setText(i == 2 ? "Booking Cancelled" : "");
             } else if (noShow) {
@@ -526,7 +576,8 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
         // Trip views
         public LinearLayout statusProgressContainer;
         LinearLayout mainCard, hiddenLayout;
-        TextView tvTripId, tvFlightNo, tvClientName, tvDate, tvTime, tvContactNumber, tvPickup, tvDropoff, tvStatus, tvVehicle, tvQueueBadge;
+        TextView tvTripId, tvFlightNo, tvClientName, tvDate, tvTime, tvContactNumber, tvPickup, tvDropoff, tvStatus, tvVehicle, tvQueueBadge, tvTripType;
+        TextView tvRFID, tvRFIDlastUpdated; // Added RFID fields
         SeekBar slideConfirm;
         AppCompatButton btnFlightAware, copyClientName, copyContactNumber, sendItenary,
                 arrivedPickup, driverUpdate, reviewAndRatings, overtimeMessage,
@@ -555,6 +606,11 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             slideConfirm = itemView.findViewById(R.id.slideConfirm);
             tvVehicle = itemView.findViewById(R.id.tvVehicle);
             tvQueueBadge = itemView.findViewById(R.id.tvQueueBadge);
+            tvTripType = itemView.findViewById(R.id.tvTripType);
+
+            // Initialize RFID fields
+            tvRFID = itemView.findViewById(R.id.tvRFID);
+            tvRFIDlastUpdated = itemView.findViewById(R.id.tvRFIDlastUpdated);
 
             // Corrected line
             statusProgressContainer = itemView.findViewById(R.id.statusContainer);

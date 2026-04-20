@@ -50,7 +50,7 @@ public class TripsActivity extends AppCompatActivity {
 
     private RecyclerView rvTrips;
     private TripAdapter adapter;
-    private List<Object> combinedList; // Changed from List<TripModel>
+    private List<Object> combinedList;
     private TextView tvEmpty;
     private DatabaseReference schedulesRef;
     private String driverPhone;
@@ -69,6 +69,20 @@ public class TripsActivity extends AppCompatActivity {
     private FusedLocationProviderClient fusedLocationClient;
     private String currentCoordinates = "Unknown";
 
+    // RFID data cache - plateNumber -> RFIDCardData
+    private Map<String, RFIDCardData> rfidCache = new HashMap<>();
+
+    // Helper class for RFID data
+    private static class RFIDCardData {
+        double balance;
+        long lastUpdated;
+
+        RFIDCardData(double balance, long lastUpdated) {
+            this.balance = balance;
+            this.lastUpdated = lastUpdated;
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -80,7 +94,7 @@ public class TripsActivity extends AppCompatActivity {
         tvEmpty = findViewById(R.id.tvEmpty);
         tvDate = findViewById(R.id.tvDate);
 
-        combinedList = new ArrayList<>(); // Changed from tripList
+        combinedList = new ArrayList<>();
         adapter = new TripAdapter(this, combinedList, this::onTakePhoto, this::onClientNoShow);
         rvTrips.setAdapter(adapter);
 
@@ -90,50 +104,20 @@ public class TripsActivity extends AppCompatActivity {
         setupBottomNavigation();
         loadUserFromPrefs();
         setupFirebase();
-        loadTodayTrips();
+        loadRFIDDataAndTrips(); // Changed: Load RFID data first
         initCloudinary();
         initCameraLauncher();
         displayCurrentDate();
     }
 
     private void onClientNoShow(TripModel trip) {
-        // Show loading toast
         Toast.makeText(this, "Processing no show for Trip #" + trip.getTripNumber() + "...", Toast.LENGTH_SHORT).show();
 
-        // Update Firebase - only set clientNoShow to true, keep status unchanged
         schedulesRef.child(trip.getTripId())
                 .child("clientNoShow")
                 .setValue(true)
                 .addOnSuccessListener(aVoid -> {
-                    // OPTIONAL: Uncomment this block if you want to also update status to "No Show"
-                /*
-                // Also update the status to "No Show"
-                schedulesRef.child(trip.getTripId())
-                        .child("status")
-                        .setValue("No Show")
-                        .addOnSuccessListener(aVoid2 -> {
-                            // Update local trip object
-                            trip.setStatus("No Show");
-
-                            // Refresh the adapter
-                            adapter.notifyDataSetChanged();
-
-                            Toast.makeText(TripsActivity.this,
-                                    "✅ Trip #" + trip.getTripNumber() + " marked as Client No Show (Status updated)",
-                                    Toast.LENGTH_LONG).show();
-                        })
-                        .addOnFailureListener(e -> {
-                            Toast.makeText(TripsActivity.this,
-                                    "Failed to update status: " + e.getMessage(),
-                                    Toast.LENGTH_SHORT).show();
-                        });
-                */
-
-                    // If NOT updating status, just refresh and show success message
-                    // Update local trip object to reflect no show status in UI
-                    trip.setNoShow(true); // You'll need to add this method to TripModel
-
-                    // Refresh the adapter
+                    trip.setNoShow(true);
                     adapter.notifyDataSetChanged();
 
                     Toast.makeText(TripsActivity.this,
@@ -203,12 +187,52 @@ public class TripsActivity extends AppCompatActivity {
     }
 
     /**
-     * ✅ TODAY + TOMORROW with HEADERS
-     * ✅ Sorted: Today a→b, Tomorrow a→b
+     * Load RFID data first, then load trips
+     */
+    private void loadRFIDDataAndTrips() {
+        DatabaseReference rfidRef = FirebaseDatabase.getInstance(
+                "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        ).getReference("rfidCards");
+
+        rfidRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot rfidSnapshot) {
+                rfidCache.clear();
+
+                for (DataSnapshot cardSnapshot : rfidSnapshot.getChildren()) {
+                    String plateNumber = cardSnapshot.child("plateNumber").getValue(String.class);
+                    if (plateNumber != null && !plateNumber.isEmpty()) {
+                        Double balance = cardSnapshot.child("balance").getValue(Double.class);
+                        Long lastUpdated = cardSnapshot.child("lastUpdated").getValue(Long.class);
+
+                        rfidCache.put(plateNumber, new RFIDCardData(
+                                balance != null ? balance : 0.0,
+                                lastUpdated != null ? lastUpdated : 0L
+                        ));
+                    }
+                }
+
+                // Now load trips with the RFID cache populated
+                loadTodayTrips();
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(TripsActivity.this, "Failed to load RFID data", Toast.LENGTH_SHORT).show();
+                // Still try to load trips even if RFID fails
+                loadTodayTrips();
+            }
+        });
+    }
+
+    /**
+     * TODAY + TOMORROW with HEADERS
+     * Sorted: Yesterday Uncompleted, Today a→b, Tomorrow a→b
      */
     private void loadTodayTrips() {
         LocalDate today = LocalDate.now(PH_ZONE);
         LocalDate tomorrow = today.plusDays(1);
+        LocalDate yesterday = today.minusDays(1);
 
         DateTimeFormatter timeFormatter =
                 DateTimeFormatter.ofPattern("h:mma", Locale.US);
@@ -218,12 +242,14 @@ public class TripsActivity extends AppCompatActivity {
         schedulesRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                List<TripModel> allTodayTrips = new ArrayList<>();  // ALL trips for today (including completed)
-                List<TripModel> allTomorrowTrips = new ArrayList<>(); // ALL trips for tomorrow (including completed)
-                List<TripModel> activeTodayTrips = new ArrayList<>(); // Only non-completed/non-cancelled for display
-                List<TripModel> activeTomorrowTrips = new ArrayList<>(); // Only non-completed/non-cancelled for display
+                List<TripModel> allTodayTrips = new ArrayList<>();
+                List<TripModel> allTomorrowTrips = new ArrayList<>();
+                List<TripModel> allYesterdayTrips = new ArrayList<>();
 
-                // Get ALL trips for today/tomorrow (including completed/cancelled)
+                List<TripModel> activeTodayTrips = new ArrayList<>();
+                List<TripModel> activeTomorrowTrips = new ArrayList<>();
+                List<TripModel> activeYesterdayTrips = new ArrayList<>();
+
                 for (DataSnapshot sched : snapshot.getChildren()) {
                     String phone = sched.child("current").child("cellPhone").getValue(String.class);
                     if (phone == null || !phone.equals(driverPhone)) continue;
@@ -239,7 +265,13 @@ public class TripsActivity extends AppCompatActivity {
                         continue;
                     }
 
-                    if (!(tripDate.equals(today) || tripDate.equals(tomorrow))) continue;
+                    // Get plate number to look up RFID data
+                    String plateNumber = sched.child("plateNumber").getValue(String.class);
+
+                    // Get RFID data from cache
+                    RFIDCardData rfidData = rfidCache.get(plateNumber);
+                    double rfidBalance = rfidData != null ? rfidData.balance : 0.0;
+                    long rfidLastUpdated = rfidData != null ? rfidData.lastUpdated : 0L;
 
                     TripModel trip = new TripModel(
                             sched.getKey(),
@@ -257,30 +289,53 @@ public class TripsActivity extends AppCompatActivity {
                             driverPhone,
                             sched.child("transportUnit").getValue(String.class),
                             sched.child("unitType").getValue(String.class),
-                            sched.child("plateNumber").getValue(String.class),
-                            sched.child("color").getValue(String.class)
+                            plateNumber,
+                            sched.child("color").getValue(String.class),
+                            rfidBalance,
+                            rfidLastUpdated
                     );
 
-                    if (tripDate.equals(today)) {
+                    boolean isIncomplete = status != null &&
+                            !"Completed".equalsIgnoreCase(status) &&
+                            !"Cancelled".equalsIgnoreCase(status) &&
+                            !"No Show".equalsIgnoreCase(status);
+
+                    // Categorize trips by date
+                    if (tripDate.equals(yesterday)) {
+                        allYesterdayTrips.add(trip);
+                        if (isIncomplete) {
+                            activeYesterdayTrips.add(trip);
+                        }
+                    } else if (tripDate.equals(today)) {
                         allTodayTrips.add(trip);
-                        if (!"Completed".equalsIgnoreCase(status) && !"Cancelled".equalsIgnoreCase(status)) {
+                        if (isIncomplete) {
                             activeTodayTrips.add(trip);
                         }
                     } else if (tripDate.equals(tomorrow)) {
                         allTomorrowTrips.add(trip);
-                        if (!"Completed".equalsIgnoreCase(status) && !"Cancelled".equalsIgnoreCase(status)) {
+                        if (isIncomplete) {
                             activeTomorrowTrips.add(trip);
                         }
                     }
                 }
 
-                // Sort ALL trips by time to determine their PERMANENT trip number
+                // Sort all trips by time to assign permanent trip numbers
+                sortTripsByTime(allYesterdayTrips, timeFormatter);
                 sortTripsByTime(allTodayTrips, timeFormatter);
                 sortTripsByTime(allTomorrowTrips, timeFormatter);
 
-                // Assign PERMANENT trip numbers based on time order (1, 2, 3, etc.)
-                // These numbers NEVER change, even if trip is completed
+                // Sort active trips by time for display
+                sortTripsByTime(activeYesterdayTrips, timeFormatter);
+                sortTripsByTime(activeTodayTrips, timeFormatter);
+                sortTripsByTime(activeTomorrowTrips, timeFormatter);
+
+                // Assign PERMANENT trip numbers based on time order
                 int tripNumber = 1;
+                for (TripModel trip : allYesterdayTrips) {
+                    trip.setTripNumber(tripNumber++);
+                }
+
+                tripNumber = 1;
                 for (TripModel trip : allTodayTrips) {
                     trip.setTripNumber(tripNumber++);
                 }
@@ -290,20 +345,22 @@ public class TripsActivity extends AppCompatActivity {
                     trip.setTripNumber(tripNumber++);
                 }
 
-                // Sort ACTIVE trips by time for display (they keep their permanent numbers)
-                sortTripsByTime(activeTodayTrips, timeFormatter);
-                sortTripsByTime(activeTomorrowTrips, timeFormatter);
-
                 // Build combined list with headers
                 combinedList.clear();
 
-                // Add today's active trips with header
+                // 1. Add yesterday's incomplete trips with header
+                if (!activeYesterdayTrips.isEmpty()) {
+                    combinedList.add("YESTERDAY'S TRIPS (Ongoing) - " + yesterday.format(dateDisplayFormatter));
+                    combinedList.addAll(activeYesterdayTrips);
+                }
+
+                // 2. Add today's incomplete trips with header
                 if (!activeTodayTrips.isEmpty()) {
                     combinedList.add("TODAY'S TRIPS - " + today.format(dateDisplayFormatter));
                     combinedList.addAll(activeTodayTrips);
                 }
 
-                // Add tomorrow's active trips with header
+                // 3. Add tomorrow's incomplete trips with header
                 if (!activeTomorrowTrips.isEmpty()) {
                     combinedList.add("TOMORROW'S TRIPS - " + tomorrow.format(dateDisplayFormatter));
                     combinedList.addAll(activeTomorrowTrips);
@@ -369,9 +426,7 @@ public class TripsActivity extends AppCompatActivity {
             fusedLocationClient.getLastLocation()
                     .addOnSuccessListener(location -> {
                         if (location != null) {
-                            // Store raw coordinates
                             String coords = location.getLatitude() + ", " + location.getLongitude();
-                            // Geocode address
                             String address = getAddressFromCoordinates(location.getLatitude(), location.getLongitude());
                             currentCoordinates = coords + " (" + address + ")";
                         } else {
@@ -430,7 +485,7 @@ public class TripsActivity extends AppCompatActivity {
 
             Paint paint = new Paint();
             paint.setColor(Color.BLACK);
-            paint.setTextSize(125); // bigger text
+            paint.setTextSize(125);
             paint.setAntiAlias(true);
             paint.setShadowLayer(25f, 10f, 10f, Color.WHITE);
 
@@ -441,22 +496,19 @@ public class TripsActivity extends AppCompatActivity {
                     "Driver: " + driverName,
                     "Client: " + clientName,
                     "Date: " + dateTime,
-                    "Coordinates: " + coordinates // this will be wrapped
+                    "Coordinates: " + coordinates
             );
 
             y = mutableBitmap.getHeight() - padding;
 
             for (int i = lines.size() - 1; i >= 0; i--) {
                 String line = lines.get(i);
-
-                // Wrap long lines
                 List<String> wrapped = wrapText(line, paint, mutableBitmap.getWidth() - 2 * padding);
 
-                // Draw wrapped lines from bottom to top
                 for (int j = wrapped.size() - 1; j >= 0; j--) {
                     String wrapLine = wrapped.get(j);
                     float textWidth = paint.measureText(wrapLine);
-                    x = mutableBitmap.getWidth() - textWidth - padding; // right aligned
+                    x = mutableBitmap.getWidth() - textWidth - padding;
                     canvas.drawText(wrapLine, x, y, paint);
                     y -= paint.getTextSize() + 30;
                 }
@@ -470,9 +522,6 @@ public class TripsActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Split a string into multiple lines that fit within maxWidth
-     */
     private List<String> wrapText(String text, Paint paint, float maxWidth) {
         List<String> lines = new ArrayList<>();
         String[] words = text.split(" ");
@@ -597,7 +646,6 @@ public class TripsActivity extends AppCompatActivity {
 
                             statusRef.setValue(newStatus).addOnSuccessListener(v -> {
                                 trip.setStatus(newStatus);
-                                // Find and update the trip in combinedList
                                 for (int i = 0; i < combinedList.size(); i++) {
                                     Object item = combinedList.get(i);
                                     if (item instanceof TripModel) {

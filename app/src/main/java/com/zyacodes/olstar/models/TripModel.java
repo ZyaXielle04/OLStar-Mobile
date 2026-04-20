@@ -21,6 +21,10 @@ public class TripModel {
     private String plateNumber;
     private String color;
 
+    // ---------------- RFID Fields ----------------
+    private double rfidBalance;
+    private long rfidLastUpdated;
+
     // ---------------- State fields ----------------
     private boolean expanded = false;
     private int slideProgress = 0;
@@ -34,7 +38,8 @@ public class TripModel {
                      String date, String time, String flightNumber, String clientName,
                      String tripType, String driverRate, String contactNumber,
                      String driverName, String driverPhone, String transportUnit,
-                     String unitType, String plateNumber, String color) {
+                     String unitType, String plateNumber, String color,
+                     double rfidBalance, long rfidLastUpdated) {
         this.tripId = tripId;
         this.pickup = pickup;
         this.dropOff = dropOff;
@@ -52,6 +57,8 @@ public class TripModel {
         this.unitType = unitType;
         this.plateNumber = plateNumber;
         this.color = color;
+        this.rfidBalance = rfidBalance;
+        this.rfidLastUpdated = rfidLastUpdated;
     }
 
     // ---------------- Getters ----------------
@@ -72,6 +79,13 @@ public class TripModel {
     public String getUnitType() { return unitType; }
     public String getPlateNumber() { return plateNumber; }
     public String getColor() { return color; }
+
+    // ---------------- RFID Getters/Setters ----------------
+    public double getRfidBalance() { return rfidBalance; }
+    public void setRfidBalance(double rfidBalance) { this.rfidBalance = rfidBalance; }
+
+    public long getRfidLastUpdated() { return rfidLastUpdated; }
+    public void setRfidLastUpdated(long rfidLastUpdated) { this.rfidLastUpdated = rfidLastUpdated; }
 
     // ---------------- State Getters/Setters ----------------
     public boolean isExpanded() { return expanded; }

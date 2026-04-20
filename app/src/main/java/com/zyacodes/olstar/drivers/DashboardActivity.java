@@ -32,13 +32,14 @@ public class DashboardActivity extends AppCompatActivity {
     private TextView tvTotalBookings, tvTodayEarnings, tvPendingBookings;
     private TextView tvWeeklyEarnings, tvCompletedTrips;
 
-    private LinearLayout navDashboard, navTrips, navRequests, navSettings, navHistory, llTodaysBookings;
+    private LinearLayout navDashboard, navTrips, navRequests, navSettings, navHistory, llTodaysBookings, todaySalaryLinear, totalSalaryLinear;
 
     private DatabaseReference schedulesRef, usersRef;
     private FirebaseAuth auth;
 
     private String driverPhone;
     private String userId;
+    private String driverType;
 
     private final ZoneId PH_ZONE = ZoneId.of("Asia/Manila");
 
@@ -70,7 +71,8 @@ public class DashboardActivity extends AppCompatActivity {
         setupBottomNavigation();
         loadUserFromPrefs();
         loadDriverName();
-        loadTodaysData();
+        loadDriverTypeFromPrefs();
+        checkDriverTypeAndLoadData();
     }
 
     @Override
@@ -89,6 +91,9 @@ public class DashboardActivity extends AppCompatActivity {
         tvWeeklyEarnings = findViewById(R.id.tvWeeklyEarnings);
         tvCompletedTrips = findViewById(R.id.tvCompletedTrips);
 
+        todaySalaryLinear = findViewById(R.id.todaySalaryLinear);
+        totalSalaryLinear = findViewById(R.id.totalSalaryLinear);
+
         navDashboard = findViewById(R.id.navDashboard);
         navTrips = findViewById(R.id.navTrips);
         navRequests = findViewById(R.id.navRequests);
@@ -104,7 +109,8 @@ public class DashboardActivity extends AppCompatActivity {
 
         SharedPreferences prefs = getSharedPreferences("login", MODE_PRIVATE);
         driverPhone = prefs.getString("phone", null);
-        String prefUid = prefs.getString("uid", null);
+        String prefUid = prefs.getString("userId", null);
+        driverType = prefs.getString("driverType", null);
 
         // Use auth UID first, fallback to prefs UID
         userId = (authUid != null) ? authUid : prefUid;
@@ -137,6 +143,78 @@ public class DashboardActivity extends AppCompatActivity {
                         Toast.makeText(DashboardActivity.this, "Failed to load name", Toast.LENGTH_SHORT).show();
                     }
                 });
+    }
+
+    private void loadDriverTypeFromPrefs() {
+        SharedPreferences prefs = getSharedPreferences("login", MODE_PRIVATE);
+        driverType = prefs.getString("driverType", null);
+        // Default to empty string if null
+        if (driverType == null) driverType = "";
+    }
+
+    /**
+     * Check driver type first, then load data with appropriate visibility
+     */
+    private void checkDriverTypeAndLoadData() {
+        // First try to use driverType from SharedPreferences
+        if (driverType != null && !driverType.isEmpty()) {
+            applyDriverTypeVisibility(driverType);
+            loadTodaysData();
+            return;
+        }
+
+        // Fallback to Firebase if not in SharedPreferences
+        if (userId == null) return;
+
+        usersRef.child(userId).child("driverType")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        String driverTypeFromFirebase = snapshot.getValue(String.class);
+
+                        // Save to SharedPreferences for future use
+                        if (driverTypeFromFirebase != null) {
+                            driverType = driverTypeFromFirebase;
+                            getSharedPreferences("login", MODE_PRIVATE)
+                                    .edit()
+                                    .putString("driverType", driverTypeFromFirebase)
+                                    .apply();
+                        }
+
+                        applyDriverTypeVisibility(driverTypeFromFirebase);
+                        loadTodaysData();
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        // If error, default to hiding salary sections
+                        todaySalaryLinear.setVisibility(LinearLayout.GONE);
+                        totalSalaryLinear.setVisibility(LinearLayout.GONE);
+                        loadTodaysData();
+                        Toast.makeText(DashboardActivity.this,
+                                "Failed to load driver type", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void applyDriverTypeVisibility(String type) {
+        if (type == null) type = "";
+
+        // Hide salary sections for ALL except "main" drivers
+        if ("main".equalsIgnoreCase(type)) {
+            // Main driver - show salary sections
+            todaySalaryLinear.setVisibility(LinearLayout.VISIBLE);
+            totalSalaryLinear.setVisibility(LinearLayout.VISIBLE);
+        } else {
+            // Not main driver (indirect or direct) - hide salary sections
+            todaySalaryLinear.setVisibility(LinearLayout.GONE);
+            totalSalaryLinear.setVisibility(LinearLayout.GONE);
+        }
+
+        // Log for debugging
+        android.util.Log.d("Dashboard", "Driver type: " + type +
+                ", Today Salary visible: " + (todaySalaryLinear.getVisibility() == LinearLayout.VISIBLE) +
+                ", Cutoff Salary visible: " + (totalSalaryLinear.getVisibility() == LinearLayout.VISIBLE));
     }
 
     private void loadTodaysData() {

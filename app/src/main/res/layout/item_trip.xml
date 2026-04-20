@@ -55,16 +55,35 @@
         android:background="@drawable/bg_card"
         android:elevation="5dp">
 
-        <TextView
-            android:id="@+id/tvQueueBadge"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="@drawable/circle_blue_background"
-            android:gravity="center"
-            android:textColor="@android:color/white"
-            android:textSize="25sp"
-            android:textStyle="bold"
-            android:visibility="gone" />
+        <!-- Trip ID and Flight No -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="2">
+
+            <TextView
+                android:id="@+id/tvQueueBadge"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/circle_blue_background"
+                android:gravity="center"
+                android:textColor="@android:color/white"
+                android:textSize="25sp"
+                android:textStyle="bold"/>
+
+            <TextView
+                android:id="@+id/tvTripType"
+                android:text="Trip Type: "
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="#172747"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_gravity="center_vertical"
+                android:textAlignment="center"/>
+        </LinearLayout>
 
         <!-- Trip ID and Flight No -->
         <LinearLayout
@@ -126,7 +145,7 @@
             android:text="Pickup"
             android:textSize="14sp"
             android:textColor="#555555"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="10dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
 
@@ -134,7 +153,7 @@
             android:id="@+id/tvDropoff"
             android:text="Drop-off"
             android:textSize="14sp"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="10dp"
             android:textColor="#555555"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
@@ -145,7 +164,7 @@
             android:text="Date"
             android:textSize="14sp"
             android:textColor="#555555"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="10dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
 
@@ -165,14 +184,34 @@
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="#555555"
-            android:layout_marginTop="20dp"/>
+            android:layout_marginTop="10dp"/>
+
+        <TextView
+            android:id="@+id/tvRFID"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="RFID Balance:"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#555555"
+            android:layout_marginTop="10dp"/>
+
+        <!-- Status -->
+        <TextView
+            android:id="@+id/tvRFIDlastUpdated"
+            android:text="RFID Last updated:"
+            android:textSize="14sp"
+            android:layout_marginTop="10dp"
+            android:textColor="@android:color/black"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
 
         <!-- Status -->
         <TextView
             android:id="@+id/tvStatus"
             android:text="Status"
             android:textSize="14sp"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="10dp"
             android:textColor="@android:color/black"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>

@@ -6,14 +6,32 @@
         android:name="android.hardware.camera"
         android:required="true" />
 
+    <!-- Location Permissions -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <!-- Camera & Storage Permissions -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+
+    <!-- Alarm & Notification Permissions -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
+    <!-- Internet Permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:allowBackup="true"
@@ -23,14 +41,31 @@
         android:label="@string/app_name"
         android:roundIcon="@drawable/ic_car"
         android:supportsRtl="true"
-        android:theme="@style/Theme.OLStar">
-        <activity
-            android:name=".drivers.HistoryActivity"
-            android:exported="false" />
+        android:theme="@style/Theme.OLStar"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="31">
 
+        <!-- Google Maps API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBZwE8kSgkloKvNgOEKhJUVyNS2He2NqT0" /> <!-- ✅ REQUIRED FOR CAMERA PHOTO CAPTURE -->
+            android:value="AIzaSyBZwE8kSgkloKvNgOEKhJUVyNS2He2NqT0" />
+
+        <!-- Firebase Messaging Service -->
+        <service
+            android:name=".services.FCMService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Location Tracking Service -->
+        <service
+            android:name=".services.LocationTrackingService"
+            android:foregroundServiceType="location"
+            android:exported="false" />
+
+        <!-- File Provider for Camera -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
@@ -41,28 +76,38 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-
-        <service
-            android:name=".services.LocationTrackingService"
-            android:enabled="true"
+        <!-- Activities -->
+        <activity
+            android:name=".drivers.HistoryActivity"
             android:exported="false"
-            android:foregroundServiceType="location" />
+            android:parentActivityName=".drivers.DashboardActivity" />
 
         <activity
             android:name=".drivers.TripActiveActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:parentActivityName=".drivers.DashboardActivity"
+            android:keepScreenOn="true" />
+
         <activity
             android:name=".drivers.SettingsActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:parentActivityName=".drivers.DashboardActivity" />
+
         <activity
             android:name=".drivers.RequestsActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:parentActivityName=".drivers.DashboardActivity" />
+
         <activity
             android:name=".drivers.TripsActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:parentActivityName=".drivers.DashboardActivity" />
+
         <activity
             android:name=".drivers.DashboardActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:launchMode="singleTop" />
+
         <activity
             android:name=".SplashScreen"
             android:exported="true">
@@ -72,9 +117,36 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
             android:name=".MainActivity"
-            android:exported="false" />
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:launchMode="singleTop" />
+
+        <!-- Add default notification channel configuration -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notifications" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@android:color/black" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="@string/default_notification_channel_id" />
+
+        <!-- Receiver for boot completed to restart services -->
+        <receiver
+            android:name=".receivers.BootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

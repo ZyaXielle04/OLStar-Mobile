@@ -101,38 +101,77 @@ public class GasPaymentDialog {
         }
 
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if (intent.resolveActivity(activity.getPackageManager()) == null) return;
+        if (intent.resolveActivity(activity.getPackageManager()) == null) {
+            toast(activity, "No camera app found");
+            return;
+        }
 
         File photoFile;
         try {
+            // Create OLStar subdirectory in Pictures
+            File storageDir = new File(
+                    activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
+                    "OLStar"
+            );
+
+            // Create directory if it doesn't exist
+            if (!storageDir.exists()) {
+                storageDir.mkdirs();
+            }
+
+            // Create the image file in the OLStar subdirectory
             photoFile = File.createTempFile(
                     "IMG_" + System.currentTimeMillis(),
                     ".jpg",
-                    activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+                    storageDir  // <- Now creates file in Pictures/OLStar/
             );
+
+            // Make sure the file is writable
+            photoFile.setWritable(true, false);
+
         } catch (IOException e) {
-            toast(activity, "Failed to create image file");
+            e.printStackTrace();
+            toast(activity, "Failed to create image file: " + e.getMessage());
             return;
         }
 
         currentPhotoPath = photoFile.getAbsolutePath();
+        System.out.println("Photo path: " + currentPhotoPath);
 
         Uri photoURI = FileProvider.getUriForFile(
                 activity,
-                activity.getPackageName() + ".provider",
+                activity.getPackageName() + ".provider",  // Make sure this matches manifest
                 photoFile
         );
 
         intent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+
+        // Grant URI permission to camera app
+        activity.grantUriPermission(
+                "com.android.camera",
+                photoURI,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        );
+
         activity.startActivityForResult(intent, requestCode);
     }
 
     public static void handleActivityResult(int requestCode, int resultCode, Intent data, Activity activity) {
-        if (resultCode != Activity.RESULT_OK) return;
+        if (resultCode != Activity.RESULT_OK) {
+            toast(activity, "Photo capture cancelled or failed");
+            return;
+        }
+
+        if (currentPhotoPath == null || currentPhotoPath.isEmpty()) {
+            toast(activity, "No photo path saved");
+            return;
+        }
 
         File f = new File(currentPhotoPath);
         if (!f.exists()) {
-            toast(activity, "Photo file missing");
+            toast(activity, "Photo file missing: " + currentPhotoPath);
             return;
         }
 
@@ -192,12 +231,17 @@ public class GasPaymentDialog {
 
         ref.setValue(data)
                 .addOnSuccessListener(a -> toast(activity, "Request submitted"))
-                .addOnFailureListener(e -> toast(activity, "Submit failed"));
+                .addOnFailureListener(e -> toast(activity, "Submit failed: " + e.getMessage()));
     }
 
     private static void toast(Activity activity, String message) {
-        if (activity != null) Toast.makeText(activity, message, Toast.LENGTH_SHORT).show();
-        else System.out.println(message);
+        if (activity != null) {
+            activity.runOnUiThread(() ->
+                    Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+            );
+        } else {
+            System.out.println("GasPaymentDialog: " + message);
+        }
     }
 
     public interface UploadCallbackCustom {

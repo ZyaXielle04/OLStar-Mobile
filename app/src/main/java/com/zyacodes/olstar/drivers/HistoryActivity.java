@@ -29,8 +29,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class HistoryActivity extends AppCompatActivity {
 
@@ -41,6 +43,20 @@ public class HistoryActivity extends AppCompatActivity {
 
     private DatabaseReference schedulesRef;
     private String currentUserPhone;
+
+    // RFID data cache - plateNumber -> RFIDCardData
+    private Map<String, RFIDCardData> rfidCache = new HashMap<>();
+
+    // Helper class for RFID data
+    private static class RFIDCardData {
+        double balance;
+        long lastUpdated;
+
+        RFIDCardData(double balance, long lastUpdated) {
+            this.balance = balance;
+            this.lastUpdated = lastUpdated;
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,7 +78,7 @@ public class HistoryActivity extends AppCompatActivity {
                         "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/")
                 .getReference("schedules");
 
-        loadHistory();
+        loadRFIDDataAndHistory();
         setupBottomNav();
     }
 
@@ -81,6 +97,48 @@ public class HistoryActivity extends AppCompatActivity {
         } else {
             currentUserPhone = currentUserPhone.trim();
         }
+    }
+
+    /**
+     * Load RFID data first, then load history
+     */
+    private void loadRFIDDataAndHistory() {
+        DatabaseReference rfidRef = FirebaseDatabase.getInstance(
+                "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        ).getReference("rfidCards");
+
+        rfidRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot rfidSnapshot) {
+                rfidCache.clear();
+
+                for (DataSnapshot cardSnapshot : rfidSnapshot.getChildren()) {
+                    String plateNumber = cardSnapshot.child("plateNumber").getValue(String.class);
+                    if (plateNumber != null && !plateNumber.isEmpty()) {
+                        Double balance = cardSnapshot.child("balance").getValue(Double.class);
+                        Long lastUpdated = cardSnapshot.child("lastUpdated").getValue(Long.class);
+
+                        rfidCache.put(plateNumber, new RFIDCardData(
+                                balance != null ? balance : 0.0,
+                                lastUpdated != null ? lastUpdated : 0L
+                        ));
+                    }
+                }
+
+                Log.d("HistoryActivity", "RFID cache loaded with " + rfidCache.size() + " entries");
+
+                // Now load history with the RFID cache populated
+                loadHistory();
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(HistoryActivity.this, "Failed to load RFID data", Toast.LENGTH_SHORT).show();
+                Log.e("HistoryActivity", "RFID load cancelled: " + error.getMessage());
+                // Still try to load history even if RFID fails
+                loadHistory();
+            }
+        });
     }
 
     /**
@@ -156,11 +214,36 @@ public class HistoryActivity extends AppCompatActivity {
 
                     // Check if trip date is within rolling cutoff
                     if (!tripDate.before(cutoffStart) && !tripDate.after(cutoffEnd)) {
-                        TripModel trip = new TripModel(tripId, pickup, dropOff, status,
-                                date, time, flightNumber, clientName, tripType, driverRate, contactNumber, driverName, driverPhone, transportUnit, unitType, plateNumber, color);
+                        // Get RFID data from cache
+                        RFIDCardData rfidData = rfidCache.get(plateNumber);
+                        double rfidBalance = rfidData != null ? rfidData.balance : 0.0;
+                        long rfidLastUpdated = rfidData != null ? rfidData.lastUpdated : 0L;
+
+                        TripModel trip = new TripModel(
+                                tripId,
+                                pickup,
+                                dropOff,
+                                status,
+                                date,
+                                time,
+                                flightNumber,
+                                clientName,
+                                tripType,
+                                driverRate,
+                                contactNumber,
+                                driverName,
+                                driverPhone,
+                                transportUnit,
+                                unitType,
+                                plateNumber,
+                                color,
+                                rfidBalance,
+                                rfidLastUpdated
+                        );
                         historyList.add(trip);
                         Log.d("HistoryActivity", "Trip " + tripId + " added to history: " +
-                                pickup + " -> " + dropOff + ", Date: " + date + ", Flight: " + flightNumber);
+                                pickup + " -> " + dropOff + ", Date: " + date + ", Flight: " + flightNumber +
+                                ", RFID Balance: ₱" + String.format(Locale.US, "%.2f", rfidBalance));
                     } else {
                         Log.d("HistoryActivity", "Trip " + tripId + " skipped: date out of cutoff (" + date + ")");
                     }

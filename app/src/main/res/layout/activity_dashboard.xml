@@ -127,6 +127,7 @@
 
                 <!-- Today's Earnings -->
                 <LinearLayout
+                    android:id="@+id/todaySalaryLinear"
                     android:layout_width="0dp"
                     android:layout_height="120dp"
                     android:layout_columnWeight="1"
@@ -159,6 +160,7 @@
 
                 <!-- Weekly Earnings -->
                 <LinearLayout
+                    android:id="@+id/totalSalaryLinear"
                     android:layout_width="0dp"
                     android:layout_height="120dp"
                     android:layout_columnWeight="1"
@@ -244,7 +246,7 @@
                         android:textColor="#172747"/>
 
                     <TextView
-                        android:text="1.1c"
+                        android:text="2.0a"
                         android:textStyle="bold"
                         android:textSize="22sp"
                         android:layout_height="wrap_content"
