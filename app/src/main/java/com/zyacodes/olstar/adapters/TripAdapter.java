@@ -130,6 +130,22 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
         h.tvStatus.setText("Status: " + status);
         h.statusProgressContainer.removeAllViews();
 
+        String company = trip.getCompany();
+        if (company != null && !company.isEmpty()) {
+            h.tvCompany.setText(company);
+            h.tvCompany.setVisibility(View.VISIBLE);
+        } else {
+            h.tvCompany.setVisibility(View.GONE);
+        }
+
+        String pax = trip.getPax();
+        if (pax != null && !pax.isEmpty()) {
+            h.tvPax.setText("PAX: " + pax);
+            h.tvPax.setVisibility(View.VISIBLE);
+        } else {
+            h.tvPax.setVisibility(View.GONE);
+        }
+
         // Display the PERMANENT trip number prominently using the badge
         int tripNumber = trip.getTripNumber();
         if (tripNumber > 0) {
@@ -576,7 +592,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
         // Trip views
         public LinearLayout statusProgressContainer;
         LinearLayout mainCard, hiddenLayout;
-        TextView tvTripId, tvFlightNo, tvClientName, tvDate, tvTime, tvContactNumber, tvPickup, tvDropoff, tvStatus, tvVehicle, tvQueueBadge, tvTripType;
+        TextView tvTripId, tvFlightNo, tvClientName, tvDate, tvTime, tvContactNumber, tvPickup, tvDropoff, tvStatus, tvVehicle, tvQueueBadge, tvTripType, tvCompany, tvPax;;
         TextView tvRFID, tvRFIDlastUpdated; // Added RFID fields
         SeekBar slideConfirm;
         AppCompatButton btnFlightAware, copyClientName, copyContactNumber, sendItenary,
@@ -607,6 +623,8 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
             tvVehicle = itemView.findViewById(R.id.tvVehicle);
             tvQueueBadge = itemView.findViewById(R.id.tvQueueBadge);
             tvTripType = itemView.findViewById(R.id.tvTripType);
+            tvCompany = itemView.findViewById(R.id.tvCompany);
+            tvPax = itemView.findViewById(R.id.tvPax);
 
             // Initialize RFID fields
             tvRFID = itemView.findViewById(R.id.tvRFID);

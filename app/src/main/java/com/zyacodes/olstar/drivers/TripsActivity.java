@@ -272,6 +272,8 @@ public class TripsActivity extends AppCompatActivity {
                     RFIDCardData rfidData = rfidCache.get(plateNumber);
                     double rfidBalance = rfidData != null ? rfidData.balance : 0.0;
                     long rfidLastUpdated = rfidData != null ? rfidData.lastUpdated : 0L;
+                    String company = sched.child("company").getValue(String.class);
+                    String pax = sched.child("pax").getValue(String.class);
 
                     TripModel trip = new TripModel(
                             sched.getKey(),
@@ -292,7 +294,9 @@ public class TripsActivity extends AppCompatActivity {
                             plateNumber,
                             sched.child("color").getValue(String.class),
                             rfidBalance,
-                            rfidLastUpdated
+                            rfidLastUpdated,
+                            company,
+                            pax
                     );
 
                     boolean isIncomplete = status != null &&

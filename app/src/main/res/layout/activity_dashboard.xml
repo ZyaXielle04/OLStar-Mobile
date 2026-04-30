@@ -246,7 +246,7 @@
                         android:textColor="#172747"/>
 
                     <TextView
-                        android:text="2.0a"
+                        android:text="2.0b"
                         android:textStyle="bold"
                         android:textSize="22sp"
                         android:layout_height="wrap_content"

@@ -200,6 +200,8 @@ public class HistoryActivity extends AppCompatActivity {
                     String unitType = getStringValue(tripSnapshot, "unitType");
                     String plateNumber = getStringValue(tripSnapshot, "plateNumber");
                     String color = getStringValue(tripSnapshot, "color");
+                    String company = getStringValue(tripSnapshot, "company");
+                    String pax = getStringValue(tripSnapshot, "pax");
 
                     if (date == null) {
                         Log.d("HistoryActivity", "Trip " + tripId + " skipped: no date");
@@ -238,7 +240,9 @@ public class HistoryActivity extends AppCompatActivity {
                                 plateNumber,
                                 color,
                                 rfidBalance,
-                                rfidLastUpdated
+                                rfidLastUpdated,
+                                pax,
+                                company
                         );
                         historyList.add(trip);
                         Log.d("HistoryActivity", "Trip " + tripId + " added to history: " +

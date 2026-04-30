@@ -89,7 +89,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:weightSum="4">
 
             <TextView
                 android:id="@+id/tvTripId"
@@ -98,7 +99,7 @@
                 android:textSize="16sp"
                 android:textColor="#172747"
                 android:layout_width="0dp"
-                android:layout_weight="1"
+                android:layout_weight="3"
                 android:layout_height="wrap_content"/>
 
             <TextView
@@ -108,6 +109,17 @@
                 android:textSize="16sp"
                 android:textColor="#172747"
                 android:layout_width="wrap_content"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"/>
+
+            <TextView
+                android:id="@+id/tvCompany"
+                android:text="Company"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="#172747"
+                android:layout_width="wrap_content"
+                android:layout_weight="1"
                 android:layout_height="wrap_content"/>
         </LinearLayout>
 
@@ -181,6 +193,16 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Vehicle:"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#555555"
+            android:layout_marginTop="10dp"/>
+
+        <TextView
+            android:id="@+id/tvPax"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PAX: "
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="#555555"

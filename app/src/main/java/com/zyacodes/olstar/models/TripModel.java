@@ -20,6 +20,8 @@ public class TripModel {
     private String unitType;
     private String plateNumber;
     private String color;
+    private String company;
+    private String pax;
 
     // ---------------- RFID Fields ----------------
     private double rfidBalance;
@@ -39,7 +41,7 @@ public class TripModel {
                      String tripType, String driverRate, String contactNumber,
                      String driverName, String driverPhone, String transportUnit,
                      String unitType, String plateNumber, String color,
-                     double rfidBalance, long rfidLastUpdated) {
+                     double rfidBalance, long rfidLastUpdated, String company, String pax) {
         this.tripId = tripId;
         this.pickup = pickup;
         this.dropOff = dropOff;
@@ -59,6 +61,8 @@ public class TripModel {
         this.color = color;
         this.rfidBalance = rfidBalance;
         this.rfidLastUpdated = rfidLastUpdated;
+        this.company = company;
+        this.pax = pax;
     }
 
     // ---------------- Getters ----------------
@@ -133,6 +137,12 @@ public class TripModel {
     public boolean isActive() {
         return !isCompleted() && !isCancelled();
     }
+
+    public String getCompany() { return company; }
+    public void setCompany(String company) { this.company = company; }
+
+    public String getPax() { return pax; }
+    public void setPax(String pax) { this.pax = pax; }
 
     // ---------------- Display Helper ----------------
     public String getDisplayTripNumber() {
