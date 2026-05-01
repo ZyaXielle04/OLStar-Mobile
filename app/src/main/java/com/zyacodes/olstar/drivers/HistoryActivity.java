@@ -71,9 +71,8 @@ public class HistoryActivity extends AppCompatActivity {
         adapter = new HistoryAdapter(this, historyList);
         recyclerHistory.setAdapter(adapter);
 
-        loadUserFromPrefs(); // load driver phone from shared prefs
+        loadUserFromPrefs();
 
-        // Use your RTDB URL
         schedulesRef = FirebaseDatabase.getInstance(
                         "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/")
                 .getReference("schedules");
@@ -82,9 +81,6 @@ public class HistoryActivity extends AppCompatActivity {
         setupBottomNav();
     }
 
-    /**
-     * Load the driver phone stored in SharedPreferences by DashboardActivity
-     */
     private void loadUserFromPrefs() {
         SharedPreferences prefs = getSharedPreferences("login", MODE_PRIVATE);
         currentUserPhone = prefs.getString("phone", null);
@@ -99,9 +95,6 @@ public class HistoryActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Load RFID data first, then load history
-     */
     private void loadRFIDDataAndHistory() {
         DatabaseReference rfidRef = FirebaseDatabase.getInstance(
                 "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/"
@@ -126,8 +119,6 @@ public class HistoryActivity extends AppCompatActivity {
                 }
 
                 Log.d("HistoryActivity", "RFID cache loaded with " + rfidCache.size() + " entries");
-
-                // Now load history with the RFID cache populated
                 loadHistory();
             }
 
@@ -135,16 +126,11 @@ public class HistoryActivity extends AppCompatActivity {
             public void onCancelled(@NonNull DatabaseError error) {
                 Toast.makeText(HistoryActivity.this, "Failed to load RFID data", Toast.LENGTH_SHORT).show();
                 Log.e("HistoryActivity", "RFID load cancelled: " + error.getMessage());
-                // Still try to load history even if RFID fails
                 loadHistory();
             }
         });
     }
 
-    /**
-     * Load completed trips under /schedules where /current/cellPhone matches currentUserPhone
-     * and status is "Completed", and filter by rolling cutoff range (last month's 1st cutoff → this month's current cutoff)
-     */
     private void loadHistory() {
         Date[] cutoffRange = getTargetCutoffRange();
         Date cutoffStart = cutoffRange[0];
@@ -156,7 +142,6 @@ public class HistoryActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 historyList.clear();
-                Log.d("HistoryActivity", "Total trips in /schedules: " + snapshot.getChildrenCount());
 
                 for (DataSnapshot tripSnapshot : snapshot.getChildren()) {
 
@@ -166,26 +151,19 @@ public class HistoryActivity extends AppCompatActivity {
                             .getValue(String.class);
 
                     if (driverPhone == null) {
-                        Log.d("HistoryActivity", "Trip " + tripId + " skipped: no driver phone");
                         continue;
                     }
 
                     driverPhone = driverPhone.trim();
                     if (!driverPhone.equals(currentUserPhone)) {
-                        Log.d("HistoryActivity", "Trip " + tripId + " skipped: driver phone mismatch (" + driverPhone + ")");
                         continue;
                     }
 
-                    Log.d("HistoryActivity", "Trip " + tripId + ": driver phone matches");
-
-                    // Check status
                     String status = tripSnapshot.child("status").getValue(String.class);
                     if (status == null || !"Completed".equalsIgnoreCase(status.trim())) {
-                        Log.d("HistoryActivity", "Trip " + tripId + " skipped: status not completed (" + status + ")");
                         continue;
                     }
 
-                    // Get trip fields
                     String pickup = getStringValue(tripSnapshot, "pickup");
                     String dropOff = getStringValue(tripSnapshot, "dropOff");
                     String date = getStringValue(tripSnapshot, "date");
@@ -203,53 +181,23 @@ public class HistoryActivity extends AppCompatActivity {
                     String company = getStringValue(tripSnapshot, "company");
                     String pax = getStringValue(tripSnapshot, "pax");
 
-                    if (date == null) {
-                        Log.d("HistoryActivity", "Trip " + tripId + " skipped: no date");
-                        continue;
-                    }
+                    if (date == null) continue;
 
                     Date tripDate = parseTripDate(date.trim());
-                    if (tripDate == null) {
-                        Log.d("HistoryActivity", "Trip " + tripId + " skipped: invalid date format (" + date + ")");
-                        continue;
-                    }
+                    if (tripDate == null) continue;
 
-                    // Check if trip date is within rolling cutoff
                     if (!tripDate.before(cutoffStart) && !tripDate.after(cutoffEnd)) {
-                        // Get RFID data from cache
                         RFIDCardData rfidData = rfidCache.get(plateNumber);
                         double rfidBalance = rfidData != null ? rfidData.balance : 0.0;
                         long rfidLastUpdated = rfidData != null ? rfidData.lastUpdated : 0L;
 
                         TripModel trip = new TripModel(
-                                tripId,
-                                pickup,
-                                dropOff,
-                                status,
-                                date,
-                                time,
-                                flightNumber,
-                                clientName,
-                                tripType,
-                                driverRate,
-                                contactNumber,
-                                driverName,
-                                driverPhone,
-                                transportUnit,
-                                unitType,
-                                plateNumber,
-                                color,
-                                rfidBalance,
-                                rfidLastUpdated,
-                                pax,
-                                company
+                                tripId, pickup, dropOff, status, date, time, flightNumber,
+                                clientName, tripType, driverRate, contactNumber, driverName,
+                                driverPhone, transportUnit, unitType, plateNumber, color,
+                                rfidBalance, rfidLastUpdated, pax, company
                         );
                         historyList.add(trip);
-                        Log.d("HistoryActivity", "Trip " + tripId + " added to history: " +
-                                pickup + " -> " + dropOff + ", Date: " + date + ", Flight: " + flightNumber +
-                                ", RFID Balance: ₱" + String.format(Locale.US, "%.2f", rfidBalance));
-                    } else {
-                        Log.d("HistoryActivity", "Trip " + tripId + " skipped: date out of cutoff (" + date + ")");
                     }
                 }
 
@@ -260,22 +208,15 @@ public class HistoryActivity extends AppCompatActivity {
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 Toast.makeText(HistoryActivity.this, "Failed to load trips.", Toast.LENGTH_SHORT).show();
-                Log.e("HistoryActivity", "Firebase load cancelled: " + error.getMessage());
             }
         });
     }
 
-    // Helper to safely get string from snapshot
     private String getStringValue(DataSnapshot snapshot, String key) {
         Object val = snapshot.child(key).getValue();
         return val != null ? val.toString() : null;
     }
 
-    /**
-     * Determine rolling cutoff range:
-     * start = first cutoff of last month (1–15)
-     * end = this month current cutoff (1–15 or 16–end depending on today)
-     */
     private Date[] getTargetCutoffRange() {
         Calendar today = Calendar.getInstance();
         int dayToday = today.get(Calendar.DAY_OF_MONTH);
@@ -283,12 +224,10 @@ public class HistoryActivity extends AppCompatActivity {
         Calendar start = Calendar.getInstance();
         Calendar end = Calendar.getInstance();
 
-        // Start = first cutoff of last month
         start.add(Calendar.MONTH, -1);
         start.set(Calendar.DAY_OF_MONTH, 1);
         setStartOfDay(start);
 
-        // End = this month current cutoff
         if (dayToday <= 15) {
             end.set(Calendar.DAY_OF_MONTH, 15);
         } else {
@@ -313,7 +252,6 @@ public class HistoryActivity extends AppCompatActivity {
         cal.set(Calendar.MILLISECOND, 999);
     }
 
-    // Parse date string yyyy-MM-dd
     private Date parseTripDate(String dateString) {
         try {
             return new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateString);
@@ -322,7 +260,6 @@ public class HistoryActivity extends AppCompatActivity {
         }
     }
 
-    // Bottom navigation
     private void setupBottomNav() {
         LinearLayout navDashboard = findViewById(R.id.navDashboard);
         LinearLayout navTrips = findViewById(R.id.navTrips);

@@ -15,10 +15,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.*;
 
-import com.zyacodes.olstar.GasPaymentDialog;
 import com.zyacodes.olstar.R;
 import com.zyacodes.olstar.adapters.RequestsAdapter;
-import com.zyacodes.olstar.controllers.GlobalFabController;
 import com.zyacodes.olstar.models.RequestModel;
 
 import java.util.ArrayList;
@@ -75,8 +73,7 @@ public class RequestsActivity extends AppCompatActivity {
                         requestList.clear();
 
                         for (DataSnapshot snap : snapshot.getChildren()) {
-                            RequestModel model =
-                                    snap.getValue(RequestModel.class);
+                            RequestModel model = snap.getValue(RequestModel.class);
                             if (model != null) {
                                 requestList.add(model);
                             }
@@ -91,8 +88,8 @@ public class RequestsActivity extends AppCompatActivity {
                     }
                 });
     }
-    private void setupBottomNavigation() {
 
+    private void setupBottomNavigation() {
         navDashboard = findViewById(R.id.navDashboard);
         navTrips = findViewById(R.id.navTrips);
         navRequests = findViewById(R.id.navRequests);
@@ -109,7 +106,6 @@ public class RequestsActivity extends AppCompatActivity {
         navTrips.setOnClickListener(v -> {
             Intent intent = new Intent(this, TripsActivity.class);
             startActivity(intent);
-            // Fade animation
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             finish();
         });
@@ -117,13 +113,11 @@ public class RequestsActivity extends AppCompatActivity {
         navHistory.setOnClickListener(v -> {
             Intent intent = new Intent(this, HistoryActivity.class);
             startActivity(intent);
-            // Fade animation
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             finish();
         });
 
-        navRequests.setOnClickListener(v -> {
-        });
+        navRequests.setOnClickListener(v -> {});
 
         navSettings.setOnClickListener(v -> {
             Intent intent = new Intent(this, SettingsActivity.class);

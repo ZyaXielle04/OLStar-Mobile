@@ -29,8 +29,7 @@ import com.google.firebase.database.ValueEventListener;
 import com.zyacodes.olstar.drivers.DashboardActivity;
 import com.zyacodes.olstar.services.FCMService;
 import com.zyacodes.olstar.services.LocationTrackingService;
-
-import java.util.concurrent.Executor;
+import com.zyacodes.olstar.utils.LocationTracker;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -43,6 +42,9 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private DatabaseReference usersRef;
     private ProgressDialog progressDialog;
+
+    // Add LocationTracker
+    private LocationTracker locationTracker;
 
     // Biometric
     private BiometricPrompt biometricPrompt;
@@ -68,7 +70,9 @@ public class MainActivity extends AppCompatActivity {
 
         checkSavedLogin();
         setupBiometricLogin();
-        requestLocationPermissionAndStartService();
+
+        // Request permission but don't start service yet
+        requestLocationPermission();
 
         loginBtn.setOnClickListener(v -> loginWithPhoneAndPassword());
     }
@@ -93,8 +97,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ---------------- LOCATION SERVICE ----------------
-    private void requestLocationPermissionAndStartService() {
+    // ---------------- LOCATION PERMISSION (without starting service) ----------------
+    private void requestLocationPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
 
@@ -103,33 +107,33 @@ public class MainActivity extends AppCompatActivity {
                     new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                     LOCATION_PERMISSION_REQUEST
             );
-        } else {
-            startLocationService();
+        }
+        // Don't start tracking yet - wait for login
+    }
+
+    // Start location tracking after successful login
+    private void startLocationTracking() {
+        try {
+            locationTracker = new LocationTracker(this);
+            locationTracker.startTracking();
+            Log.d(TAG, "✅ Location tracking started successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start location tracking: " + e.getMessage(), e);
+            Toast.makeText(this, "Failed to start location tracking", Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void startLocationService() {
-        try {
-            Intent intent = new Intent(this, LocationTrackingService.class);
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Log.d(TAG, "Starting foreground service");
-                startForegroundService(intent);
-            } else {
-                Log.d(TAG, "Starting normal service");
-                startService(intent);
-            }
-
-            Log.d(TAG, "LocationTrackingService start command sent");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to start LocationTrackingService: " + e.getMessage(), e);
-            Toast.makeText(this, "Failed to start location service", Toast.LENGTH_SHORT).show();
+    // Stop location tracking when app closes
+    private void stopLocationTracking() {
+        if (locationTracker != null) {
+            locationTracker.stopTracking();
+            Log.d(TAG, "Location tracking stopped");
         }
     }
 
     // ---------------- BIOMETRIC ----------------
     private void setupBiometricLogin() {
-        Executor executor = ContextCompat.getMainExecutor(this);
+        java.util.concurrent.@org.jspecify.annotations.NonNull Executor executor = ContextCompat.getMainExecutor(this);
 
         biometricPrompt = new BiometricPrompt(this, executor,
                 new BiometricPrompt.AuthenticationCallback() {
@@ -240,12 +244,7 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
-    private void loginWithEmail(String email,
-                                String password,
-                                String phone,
-                                String role,
-                                String driverType) {
-
+    private void loginWithEmail(String email, String password, String phone, String role, String driverType) {
         progressDialog.show();
 
         mAuth.signInWithEmailAndPassword(email, password)
@@ -254,9 +253,11 @@ public class MainActivity extends AppCompatActivity {
 
                     if (task.isSuccessful()) {
                         String userId = mAuth.getCurrentUser().getUid();
-                        Log.d(TAG, "Login successful for user: " + userId);
 
-                        // Save login credentials including driverType
+                        // START LOCATION TRACKING SERVICE
+                        startLocationService();
+
+                        // Rest of your login code...
                         getSharedPreferences("login", MODE_PRIVATE)
                                 .edit()
                                 .putString("userId", userId)
@@ -267,25 +268,29 @@ public class MainActivity extends AppCompatActivity {
                                 .putString("driverType", driverType)
                                 .apply();
 
-                        // ===== IMPORTANT: Register FCM Token =====
                         registerFCMToken(userId);
-
-                        // ===== Store user ID for FCM service =====
                         storeUserIdForFCM(userId);
 
                         startActivity(new Intent(this, DashboardActivity.class));
                         finish();
                     } else {
-                        String errorMessage = task.getException() != null ?
-                                task.getException().getMessage() : "Unknown error";
-                        Toast.makeText(
-                                this,
-                                "Login failed: " + errorMessage,
-                                Toast.LENGTH_LONG
-                        ).show();
-                        Log.e(TAG, "Login failed", task.getException());
+                        // Error handling...
                     }
                 });
+    }
+
+    private void startLocationService() {
+        try {
+            Intent intent = new Intent(this, LocationTrackingService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+            Log.d(TAG, "✅ LocationTrackingService started");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start LocationTrackingService: " + e.getMessage());
+        }
     }
 
     // ===== Register FCM Token =====
@@ -318,10 +323,18 @@ public class MainActivity extends AppCompatActivity {
 
         if (requestCode == LOCATION_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startLocationService();
+                // Permission granted, but wait for login to start tracking
+                Toast.makeText(this, "Location permission granted", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, "Location permission required for tracking", Toast.LENGTH_LONG).show();
             }
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Stop tracking when app closes
+        stopLocationTracking();
     }
 }

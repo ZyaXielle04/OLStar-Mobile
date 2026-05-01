@@ -59,6 +59,8 @@
             </intent-filter>
         </service>
 
+        <service android:name="com.google.android.gms.location.LocationServices" />
+
         <!-- Location Tracking Service -->
         <service
             android:name=".services.LocationTrackingService"

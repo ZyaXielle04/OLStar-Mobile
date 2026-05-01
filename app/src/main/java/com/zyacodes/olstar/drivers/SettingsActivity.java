@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -11,22 +12,20 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.firebase.auth.FirebaseAuth;
-import com.zyacodes.olstar.GasPaymentDialog;
 import com.zyacodes.olstar.MainActivity;
 import com.zyacodes.olstar.R;
-import com.zyacodes.olstar.controllers.GlobalFabController;
+import com.zyacodes.olstar.services.LocationTrackingService;
 
 public class SettingsActivity extends AppCompatActivity {
 
     private LinearLayout navDashboard, navTrips, navRequests, navSettings, navHistory;
-    private Button btnLogout; // <-- Logout button
+    private Button btnLogout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
 
-        // Handle system bar insets
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -35,7 +34,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         initViews();
         setupBottomNavigation();
-        setupLogoutButton(); // <-- Initialize logout button
+        setupLogoutButton();
     }
 
     private void initViews() {
@@ -45,7 +44,7 @@ public class SettingsActivity extends AppCompatActivity {
         navSettings = findViewById(R.id.navSettings);
         navHistory = findViewById(R.id.navHistory);
 
-        btnLogout = findViewById(R.id.btnLogout); // <-- bind button
+        btnLogout = findViewById(R.id.btnLogout);
     }
 
     private void setupBottomNavigation() {
@@ -77,29 +76,30 @@ public class SettingsActivity extends AppCompatActivity {
             finish();
         });
 
-        // Settings → already on Settings, so no action
-        navSettings.setOnClickListener(v -> {
-            // Do nothing
-        });
+        navSettings.setOnClickListener(v -> {});
     }
 
-    // ---------------- Logout Button ----------------
     private void setupLogoutButton() {
         btnLogout.setOnClickListener(v -> {
+            // Stop the location tracking service
+            Intent intent = new Intent(this, LocationTrackingService.class);
+            intent.setAction("STOP_TRACKING");
+            startService(intent);
+            stopService(intent);
 
-            // 1. Firebase sign out
+            // Firebase sign out
             FirebaseAuth.getInstance().signOut();
 
-            // 2. Clear saved login credentials
+            // Clear saved login credentials
             getSharedPreferences("login", MODE_PRIVATE)
                     .edit()
                     .clear()
                     .apply();
 
-            // 3. Go to Login screen and clear back stack
-            Intent intent = new Intent(this, MainActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
+            // Go to Login screen
+            Intent intent2 = new Intent(this, MainActivity.class);
+            intent2.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent2);
             finish();
         });
     }
