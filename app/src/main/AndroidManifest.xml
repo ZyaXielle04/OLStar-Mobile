@@ -12,6 +12,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
+    <!-- Battery Optimization Permission (for 500ms updates) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <!-- Camera & Storage Permissions -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
@@ -27,7 +30,6 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <!-- Internet Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -61,11 +63,13 @@
 
         <service android:name="com.google.android.gms.location.LocationServices" />
 
-        <!-- Location Tracking Service -->
+        <!-- Location Tracking Service - UPDATED for 500ms -->
         <service
             android:name=".services.LocationTrackingService"
             android:foregroundServiceType="location"
-            android:exported="false" />
+            android:exported="false"
+            android:enabled="true"
+            android:stopWithTask="false" />
 
         <!-- File Provider for Camera -->
         <provider
@@ -115,7 +119,6 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

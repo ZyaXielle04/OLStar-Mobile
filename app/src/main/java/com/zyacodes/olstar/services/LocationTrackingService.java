@@ -40,6 +40,19 @@ public class LocationTrackingService extends Service {
     private static final String CHANNEL_ID = "location_tracking_channel";
     private static final int NOTIFICATION_ID = 123456;
 
+    // ==================== 500ms GPS UPDATES ====================
+    private static final long GPS_UPDATE_INTERVAL_MS = 500;      // Get GPS every 500ms
+    private static final long GPS_FASTEST_INTERVAL_MS = 500;    // Minimum 500ms
+
+    // Rate limiting to Firebase (don't flood the database)
+    private static final long FIREBASE_WRITE_INTERVAL_MS = 500; // Send to Firebase every 2 seconds
+    // ===========================================================
+
+    private long lastFirebaseWriteTime = 0;
+    private Location lastSentLocation = null;
+    private int locationUpdateCount = 0;
+    private int firebaseWriteCount = 0;
+
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
     private DatabaseReference userLocationRef;
@@ -49,20 +62,14 @@ public class LocationTrackingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "LocationTrackingService created");
+        Log.d(TAG, "LocationTrackingService created - 500ms GPS mode");
 
         try {
-            // Create notification channel FIRST
             createNotificationChannel();
-
-            // MUST call startForeground IMMEDIATELY (within 5 seconds)
             Notification notification = buildNotification();
             startForeground(NOTIFICATION_ID, notification);
             Log.d(TAG, "✅ startForeground called successfully");
-
-            // Now do the rest of initialization
             initializeService();
-
         } catch (Exception e) {
             Log.e(TAG, "❌ Error in onCreate: " + e.getMessage(), e);
             stopSelf();
@@ -71,7 +78,6 @@ public class LocationTrackingService extends Service {
 
     private void initializeService() {
         try {
-            // Check if user is logged in
             FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
             if (user == null) {
                 Log.e(TAG, "No user logged in, stopping service");
@@ -82,18 +88,14 @@ public class LocationTrackingService extends Service {
             String uid = user.getUid();
             Log.d(TAG, "Tracking location for user: " + uid);
 
-            // Initialize Firebase reference
             userLocationRef = FirebaseDatabase.getInstance(
                             "https://olstar-5e642-default-rtdb.asia-southeast1.firebasedatabase.app/")
                     .getReference("users")
                     .child(uid)
                     .child("currentLocation");
 
-            // Initialize location client
             fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-
-            // Start location updates after a small delay
-            handler.postDelayed(this::startLocationUpdates, 1000);
+            handler.postDelayed(this::startLocationUpdates, 500);
 
         } catch (Exception e) {
             Log.e(TAG, "❌ Error in initializeService: " + e.getMessage(), e);
@@ -103,8 +105,8 @@ public class LocationTrackingService extends Service {
     private Notification buildNotification() {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("OLStar Driver")
-                .setContentText("Location tracking is active")
-                .setSmallIcon(android.R.drawable.ic_dialog_map) // Using system icon
+                .setContentText("📍 Location tracking active (500ms GPS)")
+                .setSmallIcon(android.R.drawable.ic_dialog_map)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .build();
@@ -118,7 +120,7 @@ public class LocationTrackingService extends Service {
                         "Location Tracking",
                         NotificationManager.IMPORTANCE_LOW
                 );
-                channel.setDescription("Shows when your location is being tracked");
+                channel.setDescription("Shows when your location is being tracked (500ms updates)");
 
                 NotificationManager manager = getSystemService(NotificationManager.class);
                 if (manager != null) {
@@ -135,7 +137,6 @@ public class LocationTrackingService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "onStartCommand called with action: " + (intent != null ? intent.getAction() : "null"));
 
-        // Handle stop action if needed
         if (intent != null && intent.getAction() != null) {
             if (intent.getAction().equals("STOP_TRACKING")) {
                 Log.d(TAG, "Stop tracking requested");
@@ -154,7 +155,6 @@ public class LocationTrackingService extends Service {
             return;
         }
 
-        // Check location permission
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -165,19 +165,22 @@ public class LocationTrackingService extends Service {
         }
 
         try {
-            // Create location request
+            // Create location request for 500ms updates
             LocationRequest request;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // Android 12+ way
-                request = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
-                        .setMinUpdateIntervalMillis(2000)
+                // Android 12+ (API 31+)
+                request = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, GPS_UPDATE_INTERVAL_MS)
+                        .setMinUpdateIntervalMillis(GPS_FASTEST_INTERVAL_MS)
+                        .setMaxUpdateDelayMillis(500) // Max delay 1 second
                         .build();
+                Log.d(TAG, "Location request created (Android 12+): " + GPS_UPDATE_INTERVAL_MS + "ms interval");
             } else {
                 // Older Android
                 request = LocationRequest.create()
-                        .setInterval(5000)
-                        .setFastestInterval(2000)
+                        .setInterval(GPS_UPDATE_INTERVAL_MS)
+                        .setFastestInterval(GPS_FASTEST_INTERVAL_MS)
                         .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+                Log.d(TAG, "Location request created (Legacy): " + GPS_UPDATE_INTERVAL_MS + "ms interval");
             }
 
             locationCallback = new LocationCallback() {
@@ -185,7 +188,7 @@ public class LocationTrackingService extends Service {
                 public void onLocationResult(@NonNull LocationResult result) {
                     Location loc = result.getLastLocation();
                     if (loc != null) {
-                        pushLocationToFirebase(loc);
+                        processLocationUpdate(loc);
                     }
                 }
             };
@@ -197,10 +200,17 @@ public class LocationTrackingService extends Service {
             );
 
             isTracking = true;
-            Log.d(TAG, "✅ Location updates started successfully");
 
-            // Update notification to show tracking is active
-            updateNotification("Tracking active");
+            // Reset counters
+            locationUpdateCount = 0;
+            firebaseWriteCount = 0;
+
+            Log.d(TAG, "✅ Location updates started successfully!");
+            Log.d(TAG, "   📍 GPS interval: " + GPS_UPDATE_INTERVAL_MS + "ms");
+            Log.d(TAG, "   🔥 Firebase write interval: " + FIREBASE_WRITE_INTERVAL_MS + "ms");
+            Log.d(TAG, "   ⚡ Rate limiting: ~" + (FIREBASE_WRITE_INTERVAL_MS / GPS_UPDATE_INTERVAL_MS) + " GPS updates per Firebase write");
+
+            updateNotification("📍 Tracking active (500ms GPS)");
 
         } catch (SecurityException e) {
             Log.e(TAG, "Security exception starting location updates: " + e.getMessage());
@@ -208,6 +218,37 @@ public class LocationTrackingService extends Service {
         } catch (Exception e) {
             Log.e(TAG, "Error starting location updates: " + e.getMessage());
             stopSelf();
+        }
+    }
+
+    /**
+     * Process location update with rate limiting to Firebase
+     * Receives GPS every 500ms but only writes to Firebase every 2 seconds
+     */
+    private void processLocationUpdate(Location loc) {
+        long now = System.currentTimeMillis();
+        locationUpdateCount++;
+
+        // Convert speed from m/s to km/h for logging
+        double speedKmh = loc.hasSpeed() ? loc.getSpeed() * 3.6 : 0;
+
+        // Check if we should write to Firebase (rate limiting)
+        if (now - lastFirebaseWriteTime >= FIREBASE_WRITE_INTERVAL_MS) {
+            // Send to Firebase
+            pushLocationToFirebase(loc);
+            lastFirebaseWriteTime = now;
+            lastSentLocation = loc;
+            firebaseWriteCount++;
+
+            Log.d(TAG, String.format("📍 [WRITE #%d] Lat: %.6f, Lng: %.6f, Speed: %.2f km/h, Accuracy: %.1fm | GPS updates received: %d",
+                    firebaseWriteCount, loc.getLatitude(), loc.getLongitude(), speedKmh, loc.getAccuracy(), locationUpdateCount));
+
+            // Reset counter after reporting
+            locationUpdateCount = 0;
+        } else {
+            // Just log locally for debugging (VERBOSE level)
+            Log.v(TAG, String.format("📍 [GPS #%d] Lat: %.6f, Lng: %.6f, Speed: %.2f km/h (rate limited - not sending to Firebase)",
+                    locationUpdateCount, loc.getLatitude(), loc.getLongitude(), speedKmh));
         }
     }
 
@@ -242,12 +283,14 @@ public class LocationTrackingService extends Service {
             data.put("accuracy", loc.getAccuracy());
 
             if (loc.hasSpeed()) {
-                data.put("speed", loc.getSpeed());
+                // Convert m/s to km/h for consistency with the web dashboard
+                data.put("speed", loc.getSpeed() * 3.6);
             }
 
             userLocationRef.setValue(data)
-                    .addOnSuccessListener(aVoid -> Log.d(TAG, "Location updated: " +
-                            loc.getLatitude() + ", " + loc.getLongitude()))
+                    .addOnSuccessListener(aVoid -> {
+                        // Success - already logged in processLocationUpdate
+                    })
                     .addOnFailureListener(e -> Log.e(TAG, "Failed to update location: " + e.getMessage()));
         } catch (Exception e) {
             Log.e(TAG, "Error pushing location: " + e.getMessage());
@@ -259,7 +302,7 @@ public class LocationTrackingService extends Service {
             try {
                 fusedLocationClient.removeLocationUpdates(locationCallback);
                 isTracking = false;
-                Log.d(TAG, "Location updates stopped");
+                Log.d(TAG, "Location updates stopped. Total Firebase writes: " + firebaseWriteCount);
             } catch (Exception e) {
                 Log.e(TAG, "Error stopping location updates: " + e.getMessage());
             }
@@ -277,10 +320,7 @@ public class LocationTrackingService extends Service {
     public void onDestroy() {
         Log.d(TAG, "LocationTrackingService is being destroyed");
         stopTracking();
-
-        // Remove any pending handlers
         handler.removeCallbacksAndMessages(null);
-
         super.onDestroy();
     }
 
