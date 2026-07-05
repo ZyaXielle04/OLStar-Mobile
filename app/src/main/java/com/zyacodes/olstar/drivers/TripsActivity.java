@@ -332,8 +332,8 @@ public class TripsActivity extends AppCompatActivity {
     private void initCloudinary() {
         try {
             Map<String, Object> config = new HashMap<>();
-            config.put("cloud_name", "dekdyp7bb");
-            config.put("api_key", "214836573954892");
+            config.put("cloud_name", "du8zhcq81");
+            config.put("api_key", "541915733168533");
             MediaManager.init(this, config);
         } catch (IllegalStateException ignored) {}
     }
@@ -517,7 +517,7 @@ public class TripsActivity extends AppCompatActivity {
     }
 
     private void uploadPhotoToCloudinary(TripModel trip, String photoType, Uri uri) {
-        MediaManager.get().upload(uri).unsigned("OLStar").callback(new UploadCallback() {
+        MediaManager.get().upload(uri).unsigned("images").callback(new UploadCallback() {
             @Override public void onSuccess(String requestId, Map resultData) {
                 String url = resultData.get("secure_url").toString();
                 schedulesRef.child(trip.getTripId()).child("PhotoUrl").child(photoType).setValue(url).addOnSuccessListener(aVoid -> {

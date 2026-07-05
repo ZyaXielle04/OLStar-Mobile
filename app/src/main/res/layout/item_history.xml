@@ -31,8 +31,22 @@
             android:textSize="16sp"
             android:textColor="#172747"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
+            android:layout_height="wrap_content"
+            android:visibility="gone"/>
     </LinearLayout>
+
+    <!-- Client Name - Now properly displaying -->
+    <TextView
+        android:id="@+id/tvClientName"
+        android:text="Client: "
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:textColor="#172747"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:maxLines="2"
+        android:ellipsize="end"/>
 
     <!-- Pickup -->
     <TextView
@@ -42,7 +56,8 @@
         android:textColor="#555555"
         android:layout_marginTop="4dp"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:visibility="gone"/>
 
     <!-- Drop-off -->
     <TextView
@@ -51,27 +66,36 @@
         android:textSize="14sp"
         android:textColor="#555555"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:visibility="gone"/>
 
-    <!-- Date -->
-    <TextView
-        android:id="@+id/tvDate"
-        android:text="Date"
-        android:textSize="14sp"
-        android:textColor="#555555"
-        android:layout_marginTop="4dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+    <!-- Date and Time in one row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="4dp">
 
-    <!-- Time -->
-    <TextView
-        android:id="@+id/tvTime"
-        android:text="Time"
-        android:textSize="14sp"
-        android:textColor="#555555"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        <TextView
+            android:id="@+id/tvDate"
+            android:text="Date"
+            android:textSize="14sp"
+            android:textColor="#555555"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:visibility="gone"/>
 
+        <TextView
+            android:id="@+id/tvTime"
+            android:text="Time"
+            android:textSize="14sp"
+            android:textColor="#555555"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:visibility="gone"/>
+    </LinearLayout>
 
     <!-- Divider -->
     <View

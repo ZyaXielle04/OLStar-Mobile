@@ -402,7 +402,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
                     "I am the assigned driver for your airport transfer tomorrow. Here is complete information and details.\n\n" +
                     "🚗 DRIVER INFORMATION\n" +
                     "Name: " + trip.getDriverName() + "\n" +
-                    "Mobile: " + trip.getDriverPhone() + "\n" +
+                    "WhatsApp: " + trip.getDriverPhone() + "\n" +
                     "Vehicle: " + trip.getTransportUnit() + "\n" +
                     "Plate No: " + trip.getPlateNumber() + "\n" +
                     "Color: " + trip.getColor() + "\n\n" +
@@ -428,7 +428,7 @@ public class TripAdapter extends RecyclerView.Adapter<TripAdapter.ViewHolder> {
                     " waiting for your arrival.\n\n" +
                     "🚗 DRIVER INFORMATION\n" +
                     "Name: " + trip.getDriverName() + "\n" +
-                    "Mobile: " + trip.getDriverPhone() + "\n" +
+                    "WhatsApp: " + trip.getDriverPhone() + "\n" +
                     "Vehicle: " + trip.getTransportUnit() + "\n" +
                     "Plate No: " + trip.getPlateNumber() + "\n" +
                     "Color: " + trip.getColor() + "\n\n" +
