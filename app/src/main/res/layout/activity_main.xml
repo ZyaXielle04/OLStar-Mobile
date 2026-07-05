@@ -18,7 +18,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="80dp"/>
+        android:layout_marginTop="60dp"/>
 
     <!-- App Name -->
     <TextView
@@ -47,6 +47,19 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="8dp"/>
 
+    <!-- Tagline -->
+    <TextView
+        android:id="@+id/version"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="App Version 2.2b"
+        android:textSize="14sp"
+        android:textColor="@color/grey"
+        app:layout_constraintTop_toBottomOf="@id/tagline"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"/>
+
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/phoneLayout"
         android:layout_width="0dp"
@@ -55,7 +68,7 @@
         app:boxStrokeColor="@android:color/black"
         app:boxStrokeWidthFocused="2dp"
         app:hintTextColor="@android:color/black"
-        app:layout_constraintTop_toBottomOf="@id/tagline"
+        app:layout_constraintTop_toBottomOf="@id/version"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginStart="32dp"
